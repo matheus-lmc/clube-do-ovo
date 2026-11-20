@@ -1,0 +1,40 @@
+.page {
+  min-height: 100svh;
+  padding: clamp(2rem, 8vw, 7rem) 1.25rem;
+  background: #fff8e9;
+  color: #231e19;
+}
+
+.content {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.content h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: -0.037em;
+}
+
+.content a {
+  justify-self: start;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.content :is(a, button):focus-visible {
+  outline: 2px solid #231e19;
+  outline-offset: 3px;
+}
+
+.actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.content button {
+  min-height: 2.75rem;
+}

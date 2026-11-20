@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowUp, BookOpen, CalendarDays, LibraryBig } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import styles from "./home.module.css";
 
 function Wordmark() {
@@ -22,6 +23,7 @@ export default function Home() {
             <a href="#leitura-do-mes">Leitura do mês</a>
             <a href="#estante">Nossa estante</a>
             <a href="#sobre">Sobre o clube</a>
+            <Link href="/entrar">Entrar</Link>
           </nav>
         </div>
       </header>
