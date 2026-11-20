@@ -47,8 +47,21 @@ npx shadcn@latest add input
 ```bash
 npm run lint
 npm run typecheck
-npm run build
+npm run test:coverage
+npx playwright install chromium
+npm run test:e2e
 ```
+
+Use `npm run test:watch` no ciclo TDD. Escreva um teste para o comportamento esperado, veja a asserção falhar, implemente a mudança e rode a suíte antes de refatorar.
+
+- `npm run test:unit` verifica as regras de configuração do login.
+- `npm run test:integration` verifica o callback e seus redirecionamentos com o cliente Supabase simulado.
+- `npm run test:e2e` compila o app e roda os fluxos de visitante no Chromium com credenciais de teste. O servidor usa a porta 3100.
+- `npm run test:coverage` mede linhas, instruções, funções e ramificações de `src` nos testes unitários e de integração, excluindo código gerado. Abra `coverage/index.html` para ver o relatório por arquivo.
+
+A cobertura inicial fixa mínimos de 28% de linhas, 29% de instruções, 16% de funções e 42% de ramificações. Aumente os mínimos conforme estes testes cobrirem mais fluxos.
+
+O GitHub Actions roda as verificações em pushes e pull requests e disponibiliza o relatório de cobertura como artefato.
 
 ## Deploy na Vercel
 
