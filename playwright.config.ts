@@ -13,6 +13,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-key",
       AUTH_APP_URL: "http://localhost:3100",
+      ...(process.env.CLUBE_DISPOSABLE_POSTGRES_URL && { DATABASE_URL: process.env.CLUBE_DISPOSABLE_POSTGRES_URL }),
       AUTH_APPLE_ENABLED: "false",
     },
   },

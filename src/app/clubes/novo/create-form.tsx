@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowRight, Search } from "lucide-react";
 import type { BookEdition } from "@/lib/book-editions";
-import { createClub } from "../actions";
+import { Skeleton } from "@/components/ui/skeleton";
+import { createClub, saveReading } from "../actions";
 import { Cover } from "../cover";
 import styles from "../clubs.module.css";
 
@@ -13,16 +14,24 @@ function editionDescription(book: BookEdition) {
   return [book.publisher, book.year, book.pages && `${book.pages} pág.`].filter(Boolean).join(" · ");
 }
 
-export function CreateClubForm({ requestId }: { requestId: string }) {
-  const [state, action, pending] = useActionState(createClub, {});
+export type ReadingEdit = { clubId: string; revision: number; book: BookEdition | null; chapters: number | null };
+
+export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
+  requestId?: string; reading?: ReadingEdit; onCancel?: () => void; onSaved?: () => void;
+}) {
+  const [state, action, pending] = useActionState(async (state: { error?: string }, form: FormData) => {
+    const result = reading ? await saveReading(reading.clubId, state, form) : await createClub(state, form);
+    if (result.saved) onSaved?.();
+    return result;
+  }, {});
   const [name, setName] = useState("");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(reading?.book?.title ?? "");
   const [results, setResults] = useState<Results>({ query: "" });
-  const [selected, setSelected] = useState<BookEdition | null>(null);
+  const [selected, setSelected] = useState<BookEdition | null>(reading?.book ?? null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [chapters, setChapters] = useState("");
-  const [pages, setPages] = useState("");
+  const [chapters, setChapters] = useState(String(reading?.chapters ?? ""));
+  const [pages, setPages] = useState(String(reading?.book?.pages ?? ""));
   const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; failed?: boolean }>({ pending: false });
   const detailsRequest = useRef<AbortController | null>(null);
   const term = query.trim();
@@ -65,8 +74,9 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
     setOpen(false);
     setActive(-1);
     if (selected?.id !== book.id) {
-      setPages("");
-      setChapters("");
+      const initial = reading?.book?.id === book.id ? reading : undefined;
+      setPages(String(initial?.book?.pages ?? ""));
+      setChapters(String(initial?.chapters ?? ""));
     }
     setSuggestion({ pending: true });
     const request = new AbortController();
@@ -88,7 +98,7 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
 
   function onBookKey(event: KeyboardEvent<HTMLInputElement>) {
     if (event.nativeEvent.isComposing) return;
-    if (event.key === "Escape" && open) {
+    if (event.key === "Escape" && open && !selected && term.length >= 2) {
       event.preventDefault();
       setOpen(false);
       setActive(-1);
@@ -106,17 +116,22 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
     }
   }
 
+  const sameEdition = reading?.book?.id === selected?.id;
+  const resetsProgress = Boolean(reading?.book && selected &&
+    (!sameEdition || Boolean(chapters) !== Boolean(reading.chapters)));
+
   return (
-    <form action={action} className={styles.form}>
-      <input type="hidden" name="requestId" value={requestId} />
+    <form action={action} className={reading ? styles.editorForm : styles.form} aria-busy={pending}>
+      {reading ? <input type="hidden" name="revision" value={reading.revision} /> :
+        <input type="hidden" name="requestId" value={requestId} />}
       <input type="hidden" name="volume" value={selected?.id ?? ""} />
-      <div className={styles.field}>
+      {!reading && <div className={styles.field}>
         <label htmlFor="club-name">Nome do clube</label>
         <input id="club-name" name="name" required maxLength={60} placeholder="Ex. Entre Páginas"
           value={name} onChange={(event) => setName(event.target.value)} />
-      </div>
+      </div>}
       <div className={styles.field}>
-        <label htmlFor="book-query">Livro do mês</label>
+        <label htmlFor="book-query">{reading ? "Buscar edição" : "Livro do mês"}</label>
         <div className={styles.searchInput}>
           <Search size={18} aria-hidden />
           <input id="book-query" type="search" role="combobox" autoComplete="off" maxLength={120}
@@ -127,6 +142,7 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
             onChange={(event) => {
               detailsRequest.current?.abort();
               setSelected(null);
+              if (event.target.value.trim() !== term) setResults({ query: "" });
               setQuery(event.target.value);
               setOpen(true);
               setActive(-1);
@@ -146,8 +162,8 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
             </li>
           ))}
         </ul>
+        {searching && <Skeleton label="Buscando edições…" rows={3} cover />}
         <p role="status" className={styles.searchStatus}>
-          {searching && "Buscando edições…"}
           {open && !selected && term.length >= 2 && results.query === term && (
             results.error ? "A busca está indisponível. Edite o termo para tentar novamente."
               : !items.length ? "Nenhuma edição encontrada." : ""
@@ -170,8 +186,8 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
             <input id="chapter-total" name="chapters" type="number" min={1} max={1000} step={1}
               value={chapters} onChange={(event) => setChapters(event.target.value)} aria-describedby="chapter-help" />
             <p id="chapter-help">Deixe em branco para acompanhar a leitura por páginas.</p>
+            {suggestion.pending && <Skeleton label="Consultando o sumário…" />}
             <p role="status" className={styles.searchStatus}>
-              {suggestion.pending && "Consultando o sumário…"}
               {suggestion.failed && "Os detalhes da edição estão indisponíveis. Você ainda pode informar os capítulos."}
             </p>
             {suggestion.failed && (
@@ -185,20 +201,25 @@ export function CreateClubForm({ requestId }: { requestId: string }) {
               </button>
             )}
           </div>
-          {!selected.pages && (
+          {(!selected.pages || sameEdition) && (
             <div className={styles.field}>
               <label htmlFor="page-total">Total de páginas da edição</label>
               <input id="page-total" name="pages" type="number" min={1} max={100000} step={1}
                 required={!chapters && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
-              <p>O catálogo não informou o total de páginas.</p>
+              <p>{sameEdition ? "O total do catálogo tem prioridade." : "O catálogo não informou o total de páginas."}</p>
             </div>
           )}
         </>
       )}
+      {resetsProgress && <label className={styles.readingWarning}><input type="checkbox" name="confirm" value="yes" required /> Confirmo que o progresso dos membros será apagado.</label>}
       {state.error && <p className={styles.error} role="alert">{state.error}</p>}
-      <button className={styles.primary} type="submit" disabled={!selected || pending || suggestion.pending}>
-        {pending ? "Criando clube…" : "Criar clube"} <ArrowRight size={17} aria-hidden />
-      </button>
+      <div className={reading ? styles.editorActions : undefined}>
+        {onCancel && <button className={styles.button} type="button" onClick={onCancel} disabled={pending}>Cancelar</button>}
+        <button className={styles.primary} type="submit" disabled={!selected || pending || suggestion.pending}>
+          {reading ? (pending ? "Salvando…" : "Salvar livro") : (pending ? "Criando clube…" : "Criar clube")}
+          {!reading && <ArrowRight size={17} aria-hidden />}
+        </button>
+      </div>
     </form>
   );
 }

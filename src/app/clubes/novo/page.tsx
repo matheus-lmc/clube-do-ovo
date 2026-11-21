@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { randomUUID } from "node:crypto";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -24,5 +25,5 @@ async function NewClub() {
 }
 
 export default function NewClubPage() {
-  return <Suspense fallback={<p role="status">Carregando formulário…</p>}><NewClub /></Suspense>;
+  return <Suspense fallback={<Skeleton label="Carregando formulário…" rows={2} />}><NewClub /></Suspense>;
 }

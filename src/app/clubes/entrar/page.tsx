@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -18,5 +19,5 @@ async function JoinClub() {
 }
 
 export default function JoinClubPage() {
-  return <Suspense fallback={<p role="status">Carregando formulário…</p>}><JoinClub /></Suspense>;
+  return <Suspense fallback={<Skeleton label="Carregando formulário…" rows={2} />}><JoinClub /></Suspense>;
 }

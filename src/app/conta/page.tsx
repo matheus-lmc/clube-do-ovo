@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export default function AccountPage({ searchParams }: PageProps<"/conta">) {
       </header>
       <main className={styles.content}>
         <h1>Minha conta</h1>
-        <Suspense fallback={<p role="status">Carregando…</p>}>
+        <Suspense fallback={<Skeleton label="Carregando…" rows={2} />}>
           <AccountContent searchParams={searchParams} />
         </Suspense>
       </main>

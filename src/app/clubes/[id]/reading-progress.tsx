@@ -7,8 +7,8 @@ import styles from "../clubs.module.css";
 
 type Member = { id: string; name: string; progress: number | null; self: boolean };
 
-export function ReadingProgress({ clubId, total, byChapter, members }: {
-  clubId: string; total: number; byChapter: boolean; members: Member[];
+export function ReadingProgress({ clubId, revision, total, byChapter, members }: {
+  clubId: string; revision: number; total: number; byChapter: boolean; members: Member[];
 }) {
   const current = members.find((member) => member.self)?.progress;
   const [position, setPosition] = useState(String(current ?? 0));
@@ -27,6 +27,7 @@ export function ReadingProgress({ clubId, total, byChapter, members }: {
       <h2 id="progress-title">Progresso de leitura</h2>
       <div className={styles.progressLayout}>
         <form action={submit} onSubmit={() => setEdited(false)} className={styles.progressForm}>
+          <input type="hidden" name="revision" value={revision} />
           <div className={styles.field}>
             <label htmlFor="reading-position">{label}</label>
             <input id="reading-slider" type="range" min={0} max={total} step={1} value={sliderValue}

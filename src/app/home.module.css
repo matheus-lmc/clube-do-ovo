@@ -286,56 +286,126 @@
 .memberIntro h1 { font-size: clamp(2.15rem, 4.3vw, 3.8rem); line-height: 1.05; text-wrap: balance; }
 .memberIntro p { margin-top: 0.7rem; color: var(--muted-ink); }
 .memberIntro .secondaryLink:hover { background: var(--paper); }
-.memberReadings { padding-block: clamp(2rem, 4.5vw, 3.75rem); }
+.memberReadings { padding-block: clamp(1.4rem, 3vw, 2.1rem) 1rem; }
 .readingsHeading { margin-bottom: 0.8rem; }
 .readingsHeading a { text-decoration: underline; }
 
-.readingList, .readingMessage { border-block: 1px solid var(--line); }
-.readingMessage { padding-block: 1.35rem; color: var(--muted-ink); }
-.readingList li + li { border-top: 1px solid var(--line); }
-
-.readingRow {
+.readingMessage { padding-block: 1.35rem; border-block: 1px solid var(--line); color: var(--muted-ink); }
+.readingList {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(9rem, 14rem) auto;
-  align-items: center;
-  gap: 0.4rem clamp(0.8rem, 2.5vw, 2.1rem);
-  padding: 1rem 0.5rem;
-  transition: background-color 140ms ease-out;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  align-items: start;
+  padding-block: 0.65rem 0;
+  border-top: 1px solid var(--line);
 }
 
-.readingTitle, .readingProgress { overflow-wrap: anywhere; }
-.readingTitle p, .readingProgress { color: var(--muted-ink); font-size: 0.875rem; }
-.readingTitle h3 { margin-top: 0.25rem; }
-.readingProgress { display: grid; gap: 0.45rem; }
+.readingRow {
+  position: relative;
+  display: block;
+  inline-size: min(100%, clamp(4.45rem, 8vw, 5.5rem));
+  border-radius: 0.3rem;
+}
+.readingRow > span {
+  --cover-width: 100%;
+  background: var(--sage);
+}
+
+.readingPlaceholder {
+  width: 100%;
+  padding: 0.35rem;
+  text-align: center;
+  color: var(--ink);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.82rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+
+.readingDetails {
+  position: absolute;
+  inset-block-start: calc(100% - 1px);
+  inset-inline-start: 0;
+  inline-size: 9.5rem;
+  padding: 0.55rem 0.7rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: #fffcf5;
+  overflow-wrap: anywhere;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.readingDetails h3 { font-size: 0.98rem; line-height: 1.15; }
+.readingDetails p { margin-top: 0.2rem; color: var(--muted-ink); font-size: 0.78rem; }
+.readingProgress { display: grid; gap: 0.24rem; margin-top: 0.4rem; color: var(--muted-ink); font-size: 0.78rem; }
+
+.readingRow:focus-visible { z-index: 2; }
+.readingRow[data-dismissed="false"]:focus-visible .readingDetails {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .readingRow:hover { z-index: 2; }
+  .readingRow[data-dismissed="false"]:hover .readingDetails {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .readingDetails {
+    translate: 0 -0.24rem;
+    transition: translate 115ms cubic-bezier(0.7, 0, 0.84, 0), opacity 105ms ease-in, visibility 115ms;
+  }
+  .readingRow[data-dismissed="false"]:focus-visible .readingDetails {
+    translate: 0 0;
+    transition: translate 190ms cubic-bezier(0.16, 1, 0.3, 1), opacity 145ms ease-out;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .readingRow > span {
+    transform-origin: left center;
+    transition: transform 115ms cubic-bezier(0.7, 0, 0.84, 0);
+  }
+  .readingRow[data-dismissed="false"]:hover > span {
+    transform: perspective(850px) rotateY(-11deg) rotateZ(-3deg);
+    transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .readingRow[data-dismissed="false"]:hover .readingDetails {
+    translate: 0 0;
+    transition: translate 190ms cubic-bezier(0.16, 1, 0.3, 1), opacity 145ms ease-out;
+  }
+}
+
+@media (max-width: 42rem) {
+  .readingList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .readingList li:nth-child(even) .readingDetails { inset-inline-start: auto; inset-inline-end: 0; }
+}
 
 .readingProgress progress {
   appearance: none;
   display: block;
   width: 100%;
   height: 0.375rem;
-  overflow: hidden;
   border: 0;
   border-radius: 1rem;
+  overflow: hidden;
   background: #e9ddc7;
   color: #38533b;
 }
-
 .readingProgress progress::-webkit-progress-bar { background: #e9ddc7; }
 .readingProgress progress::-webkit-progress-value { border-radius: 1rem; background: #38533b; }
 .readingProgress progress::-moz-progress-bar { border-radius: 1rem; background: #38533b; }
-.readingArrow { transition: translate 140ms ease-out; }
-.readingRow:hover, .readingRow:focus-visible { background: #fffcf5; }
-
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .readingRow:hover .readingArrow { translate: 3px 0; }
-}
-
-@media (max-width: 640px) {
-  .readingRow { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .readingRow > :first-child { grid-row: span 2; }
-  .readingProgress { grid-column: 2; }
-  .readingArrow { grid-column: 3; grid-row: 1 / span 2; }
-}
 
 @media (prefers-reduced-motion: no-preference) {
   .heroArt { animation: arrive 380ms cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -372,7 +442,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .primaryLink, .secondaryLink, .navigation .navSignIn, .navSignIn svg, .readingRow, .readingArrow,
+  .primaryLink, .secondaryLink, .navigation .navSignIn, .navSignIn svg,
   .navigation a:not(.navSignIn)::after, .navigation a:not(.navSignIn):hover::after { transition: none; }
 
   .navSignIn:hover svg { translate: none; }

@@ -1,0 +1,57 @@
+.skeleton {
+  inline-size: 100%;
+}
+
+.status {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding-block: 0.625rem;
+  animation: pulse 1.5s ease-in-out infinite alternate;
+}
+
+.cover,
+.lines > span {
+  display: block;
+  border-radius: 0.3rem;
+  background: currentColor;
+  opacity: 0.13;
+}
+
+.cover {
+  flex: 0 0 2.5rem;
+  block-size: 3.5rem;
+}
+
+.lines {
+  display: grid;
+  gap: 0.5rem;
+  inline-size: min(100%, 19rem);
+}
+
+.lines > span {
+  block-size: 0.75rem;
+  inline-size: 85%;
+}
+
+.lines > span:last-child {
+  inline-size: 55%;
+}
+
+@keyframes pulse {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row { animation: none; }
+}

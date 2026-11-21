@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -48,7 +49,7 @@ export default function SignInPage({ searchParams }: PageProps<"/entrar">) {
         <section className={styles.content} aria-labelledby="sign-in-title">
           <h1 id="sign-in-title">Entre no <em>Clube do Ovo.</em></h1>
           <p>Crie seu clube de leitura, entre com um convite ou acompanhe o livro do mês com seu grupo.</p>
-          <Suspense fallback={<p className={styles.notice} role="status">Carregando opções de login…</p>}>
+          <Suspense fallback={<Skeleton label="Carregando opções de login…" rows={2} />}>
             <SignInContent searchParams={searchParams} />
           </Suspense>
         </section>

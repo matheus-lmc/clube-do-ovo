@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight } from "lucide-react";
 import { findClubInvite, joinClub } from "../actions";
 import styles from "../clubs.module.css";
@@ -25,11 +26,12 @@ export function JoinForm() {
           {searching ? "Buscando clube…" : "Buscar clube"} <ArrowRight size={17} aria-hidden />
         </button>
       </form>
+      {searching && <Skeleton label="Buscando clube…" rows={2} />}
       {invite && (
         <section className={`${styles.aside} ${styles.reveal}`} aria-labelledby="found-club">
           <h2 id="found-club">{invite.name}</h2>
           {invite.leader && <p>Líder · {invite.leader}</p>}
-          <p>Livro do mês · {invite.book}</p>
+          <p>{invite.book ? `Livro do mês · ${invite.book}` : "Sem livro do mês"}</p>
           <form className={styles.form} action={join}>
             <input type="hidden" name="code" value={invite.code} />
             {joiningState.error && <p className={styles.error} role="alert">{joiningState.error}</p>}

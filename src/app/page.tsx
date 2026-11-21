@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ArrowUp, BookOpen, Plus, Ticket } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -125,7 +126,7 @@ export default function Home() {
   return (
     <div className={styles.site} id="inicio">
       <a className={styles.skipLink} href="#conteudo">Pular para o conteúdo</a>
-      <Suspense fallback={<div className={styles.loading} role="status">Carregando o Clube do Ovo…</div>}>
+      <Suspense fallback={<Skeleton label="Carregando o Clube do Ovo…" rows={2} />}>
         <HomeContent />
       </Suspense>
     </div>

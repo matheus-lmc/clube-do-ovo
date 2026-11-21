@@ -12,8 +12,8 @@ model Club {
   name           String       @db.VarChar(60)
   leaderId       String       @db.Uuid
   inviteCode     String       @unique @db.VarChar(6)
-  bookVolumeId   String
-  bookTitle      String
+  bookVolumeId   String?
+  bookTitle      String?
   bookAuthors    String?
   bookPublisher  String?
   bookYear       String?
@@ -21,6 +21,8 @@ model Club {
   bookCover      String?
   bookPages      Int?
   chapterTotal   Int?
+  readingStartedAt DateTime?
+  readingRevision  Int @default(0)
   createdAt      DateTime     @default(now())
   members        ClubMember[]
 }

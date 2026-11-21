@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight, Plus, Ticket } from "lucide-react";
@@ -36,7 +37,7 @@ async function ClubList() {
                 <Cover url={club.bookCover} />
                 <div>
                   <h2>{club.name}</h2>
-                  <p>Livro do mês · {club.bookTitle}</p>
+                  <p>{club.bookTitle ? `Livro do mês · ${club.bookTitle}` : "Sem livro do mês"}</p>
                 </div>
                 <span className={styles.badge}>{club.leaderId === user.id ? "Líder" : "Membro"}</span>
                 <ArrowRight size={17} aria-hidden />
@@ -50,5 +51,5 @@ async function ClubList() {
 }
 
 export default function ClubsPage() {
-  return <Suspense fallback={<p role="status">Carregando clubes…</p>}><ClubList /></Suspense>;
+  return <Suspense fallback={<Skeleton label="Carregando clubes…" rows={3} cover />}><ClubList /></Suspense>;
 }
