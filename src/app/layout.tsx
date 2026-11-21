@@ -20,7 +20,7 @@ const fraunces = localFont({
 
 export const metadata: Metadata = {
   title: "Clube do Ovo",
-  description: "Um clube do livro para descobrir novas histórias e conversar sobre elas em boa companhia.",
+  description: "Crie seu clube do livro, entre com um convite e acompanhe suas leituras em grupo.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

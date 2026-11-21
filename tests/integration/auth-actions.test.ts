@@ -1,17 +1,19 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { signOut, startSocialSignIn } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 
-vi.mock("next/headers", () => ({ headers: vi.fn() }));
+vi.mock("next/headers", () => ({ cookies: vi.fn(), headers: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 
 const signInWithOAuth = vi.fn();
 const endSession = vi.fn();
+const setCookie = vi.fn();
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(headers).mockResolvedValue(new Headers({ origin: "https://clube.example" }));
+  vi.mocked(cookies).mockResolvedValue({ set: setCookie } as unknown as Awaited<ReturnType<typeof cookies>>);
   vi.mocked(createClient).mockImplementation(async () => ({
     auth: { signInWithOAuth, signOut: endSession },
   }) as unknown as Awaited<ReturnType<typeof createClient>>);
@@ -59,6 +61,23 @@ test("volta ao login quando o provedor falha", async () => {
 
   await expect(startSocialSignIn(providerForm("google"))).rejects.toMatchObject({
     digest: "NEXT_REDIRECT;replace;/entrar?erro=login;307;",
+  });
+});
+
+test("preserva o destino escolhido sem mudar a URL de callback do OAuth", async () => {
+  signInWithOAuth.mockResolvedValue({ data: { url: "https://example.supabase.co/authorize" }, error: null });
+  const form = providerForm("google");
+  form.set("acao", "criar-clube");
+
+  await expect(startSocialSignIn(form)).rejects.toMatchObject({
+    digest: "NEXT_REDIRECT;replace;https://example.supabase.co/authorize;307;",
+  });
+  expect(setCookie).toHaveBeenCalledWith("club-login-intent", "criar-clube", expect.objectContaining({
+    httpOnly: true, sameSite: "lax", secure: true, path: "/auth/callback",
+  }));
+  expect(signInWithOAuth).toHaveBeenCalledWith({
+    provider: "google",
+    options: { redirectTo: "https://clube.example/auth/callback" },
   });
 });
 

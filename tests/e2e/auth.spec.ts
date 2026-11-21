@@ -12,7 +12,7 @@ test("redireciona visitantes sem sessão para o login", async ({ page }) => {
   await page.goto("/conta");
 
   await expect(page).toHaveURL(/\/entrar$/);
-  await expect(page.getByRole("heading", { name: "Entrar" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Entre no Clube do Ovo." })).toBeVisible();
 });
 
 test("mostra o erro de login quando o callback não recebe um código", async ({ page }) => {
@@ -22,4 +22,13 @@ test("mostra o erro de login quando o callback não recebe um código", async ({
   await expect(
     page.getByRole("alert").filter({ hasText: "Não foi possível entrar" }),
   ).toBeVisible();
+});
+
+test("protege as páginas de clubes e o catálogo para visitantes sem sessão", async ({ page }) => {
+  for (const path of ["/clubes", "/clubes/novo", "/clubes/entrar", "/clubes/1be0a6ce-db27-4dc7-a130-ecce192f3c55"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/entrar$/);
+  }
+  const catalog = await page.request.get("/api/livros?q=Torto+Arado");
+  expect(catalog.status()).toBe(401);
 });

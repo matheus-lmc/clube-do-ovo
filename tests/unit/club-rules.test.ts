@@ -1,0 +1,32 @@
+import { describe, expect, it } from "vitest";
+import { chapterSuggestion, editionSearchQuery, inviteCode, progressValue, uniqueEditions } from "@/lib/club-rules";
+
+describe("club rules", () => {
+  it("accepts six alphanumeric invite characters and normalizes case", () => {
+    expect(inviteCode("  folh42 ")).toBe("FOLH42");
+    expect(inviteCode("FOLH4")).toBeNull();
+    expect(inviteCode("FOR@42")).toBeNull();
+  });
+
+  it("normalizes a formatted ISBN for a dedicated edition search", () => {
+    expect(editionSearchQuery("978-65-80309-31-3")).toBe("isbn:9786580309313");
+    expect(editionSearchQuery("  Torto Arado  ")).toBe("Torto Arado");
+  });
+
+  it("groups duplicate ISBNs while preserving distinct or unidentified editions", () => {
+    const editions = [{ id: "a", isbn: "1" }, { id: "b", isbn: "1" }, { id: "c", isbn: "2" }, { id: "d", isbn: null }];
+    expect(uniqueEditions(editions)).toEqual([editions[0], editions[2], editions[3]]);
+  });
+
+  it("suggests the count of explicit chapters and excludes headings without certainty", () => {
+    expect(chapterSuggestion([{ title: "Prefácio" }, { title: "Capítulo 1" }, { label: "Chapter II", title: "Início" }, { title: "Apêndice" }])).toBe(2);
+    expect(chapterSuggestion([{ title: "Parte I" }, { title: "Parte II" }])).toBeNull();
+    expect(chapterSuggestion([{ title: "  " }, null])).toBeNull();
+  });
+
+  it("accepts exact integer progress including zero and the last page", () => {
+    expect(progressValue("0", 264)).toBe(0);
+    expect(progressValue("264", 264)).toBe(264);
+    for (const invalid of ["", " ", "-1", "2.5", "1e2", "265"]) expect(progressValue(invalid, 264)).toBeNull();
+  });
+});

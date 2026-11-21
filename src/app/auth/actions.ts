@@ -1,13 +1,15 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAuthConfig } from "@/lib/supabase/auth-config";
+import { getLoginIntent, loginErrorUrl, loginIntentCookie, loginIntentCookiePath } from "@/lib/supabase/login-intent";
 import { createClient } from "@/lib/supabase/server";
 
 export async function startSocialSignIn(formData: FormData): Promise<never> {
   const config = getAuthConfig();
   const provider = formData.get("provider");
+  const intent = getLoginIntent(formData.get("acao"));
   const origin = (await headers()).get("origin");
   if (
     !config ||
@@ -15,7 +17,7 @@ export async function startSocialSignIn(formData: FormData): Promise<never> {
     (provider !== "google" && provider !== "apple") ||
     (provider === "apple" && !config.appleEnabled)
   ) {
-    redirect("/entrar?erro=login");
+    redirect(loginErrorUrl(intent));
   }
 
   let authorizationUrl: string | null = null;
@@ -25,12 +27,21 @@ export async function startSocialSignIn(formData: FormData): Promise<never> {
       provider,
       options: { redirectTo: new URL("/auth/callback", config.origin).href },
     });
-    if (!error) authorizationUrl = data.url;
+    if (!error && data.url) {
+      (await cookies()).set(loginIntentCookie, intent ?? "", {
+        path: loginIntentCookiePath,
+        maxAge: intent ? 600 : 0,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: config.origin.startsWith("https:"),
+      });
+      authorizationUrl = data.url;
+    }
   } catch {
     // The login page offers a retry without exposing provider details.
   }
 
-  redirect(authorizationUrl || "/entrar?erro=login");
+  redirect(authorizationUrl || loginErrorUrl(intent));
 }
 
 export async function signOut(): Promise<never> {

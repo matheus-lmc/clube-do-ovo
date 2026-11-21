@@ -26,13 +26,19 @@ Defina `AUTH_APP_URL=http://localhost:3000` em desenvolvimento e a origem HTTPS 
 - **Google.** Crie um cliente OAuth Web e configure a tela de consentimento. Cadastre a URL de callback indicada pelo Supabase, normalmente `https://<project-ref>.supabase.co/auth/v1/callback`. Adicione o client ID e o secret ao provedor Google no Supabase. Em modo de teste, inclua os usuários de teste quando exigido. [Supabase e Google](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)
 - **Apple.** Confirme o pré-requisito da Apple de um app elegível com Sign in with Apple e associe o Services ID ao App ID primário. Cadastre o domínio e a URL HTTPS de callback **do Supabase** na Apple. Coloque o Services ID e o client secret no provedor Apple do Supabase. Guarde a chave `.p8` fora do repositório e renove o client secret antes de expirar, dentro do limite de seis meses. Depois de configurar o provedor, use `AUTH_APPLE_ENABLED=true` no ambiente de teste e valide o login antes de ativá-lo em produção. [Apple Developer](https://developer.apple.com/documentation/signinwithapple/configuring-your-environment-for-sign-in-with-apple) · [Supabase e Apple](https://supabase.com/docs/guides/auth/social-sign-in/auth-apple)
 
-A home oferece o link **Entrar**. Após a autorização, `/conta` confirma a sessão e oferece a opção de sair deste navegador.
+A home oferece o link **Entrar**. Após a autorização, `/conta` oferece acesso a **Meus clubes** e a opção de sair deste navegador.
 
 ## Prisma e PostgreSQL
 
 No painel do Supabase, abra **Connect** e copie a string PostgreSQL do **Session pooler** (porta 5432). Defina `DATABASE_URL` no `.env` ou no `.env.local`, substitua o marcador pela senha do banco e use `sslmode=require`. Codifique caracteres especiais da senha no formato de URL. Se quiser uma conexão dedicada para os comandos do Prisma, configure também `DIRECT_URL` com a string de conexão direta. [Conexões do Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres)
 
-Importe `prisma` de `@/lib/prisma` em código do servidor que execute no runtime Node.js. O schema inicial está em `prisma/schema.prisma`. Se o banco já tiver tabelas, use `npx prisma db pull` para importar os modelos. Rode `npm run db:generate` depois de alterar o schema.
+Use `getPrisma()` de `@/lib/prisma` em código do servidor que execute no runtime Node.js. O schema inicial está em `prisma/schema.prisma`. Se o banco já tiver tabelas, use `npx prisma db pull` para importar os modelos. Rode `npm run db:generate` depois de alterar o schema.
+
+### Clubes de leitura
+
+- Aplique a migração com `npx prisma migrate deploy` apontando para o banco do ambiente desejado.
+- Defina `GOOGLE_BOOKS_API_KEY` para buscar livros. A Open Library é consultada por ISBN para sugerir capítulos. Configure `OPEN_LIBRARY_CONTACT_EMAIL` com o contato técnico da aplicação para identificar consultas frequentes.
+- Acesse **Meus clubes** pela página da conta. O líder escolhe uma edição, confirma a contagem de capítulos quando quiser usar esse modo e recebe o código de convite. Cada membro salva seu próprio progresso.
 
 ## shadcn/ui
 
