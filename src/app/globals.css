@@ -146,3 +146,12 @@
     @apply font-sans;
     }
 }
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+.theme-actions {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.4rem, 2vw, 0.85rem);
+}

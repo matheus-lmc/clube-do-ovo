@@ -9,6 +9,10 @@
 }
 
 .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
   padding-inline: clamp(1.25rem, 5vw, 4rem);
   border-bottom: 1px solid var(--ovo-line);
 }
