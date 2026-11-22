@@ -21,6 +21,8 @@ model Club {
   bookCover      String?
   bookPages      Int?
   chapterTotal   Int?
+  chapterTitles  String[]     @default([])
+  chapterSource  String?
   readingStartedAt DateTime?
   readingRevision  Int @default(0)
   createdAt      DateTime     @default(now())

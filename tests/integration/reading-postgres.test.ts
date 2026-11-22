@@ -40,6 +40,7 @@ test.runIf(Boolean(url))("migra a leitura legada, serializa progresso e troca e 
   await db.$executeRaw`INSERT INTO "ClubMember" ("clubId", "userId", "displayName", progress)
     VALUES (${id}::uuid, ${user.id}::uuid, 'Marina', 0)`;
   await migrate("20261120215000_optional_reading");
+  await migrate("20261121160000_chapter_titles");
 
   const club = () => db.club.findUniqueOrThrow({ where: { id }, include: { members: true } });
   expect(await club()).toMatchObject({ readingStartedAt: date, bookTitle: "Original", members: [{ progress: 0 }] });
@@ -63,6 +64,16 @@ test.runIf(Boolean(url))("migra a leitura legada, serializa progresso e troca e 
   } finally {
     await db.$executeRaw`ALTER TABLE "Club" DROP CONSTRAINT "test_reject_revision"`;
   }
+  await expect(saveReading(id, {}, fields({ volume: "nova", chapters: "2", revision: "1", confirm: "yes" })))
+    .resolves.toEqual({ saved: true });
+  await expect(saveProgress(id, {}, fields({ progress: "1", revision: "2" }))).resolves.toEqual({ saved: true });
+  await expect(saveReading(id, {}, fields({ volume: "nova", chapterTitles: "Início\nFim", revision: "2" })))
+    .resolves.toEqual({ saved: true });
+  expect(await club()).toMatchObject({ chapterTotal: 2, chapterTitles: ["Início", "Fim"], members: [{ progress: 1 }] });
+  await expect(saveReading(id, {}, fields({ volume: "nova", chapterTitles: "Fim\nInício", revision: "3" })))
+    .resolves.toHaveProperty("error");
+  expect(await club()).toMatchObject({ chapterTitles: ["Início", "Fim"], members: [{ progress: 1 }] });
+
   await expect(deleteClub(id, {}, fields({ confirm: "yes" }))).rejects.toThrow("NEXT_REDIRECT");
   expect(await db.clubMember.count({ where: { clubId: id } })).toBe(0);
 });

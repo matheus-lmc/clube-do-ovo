@@ -143,6 +143,8 @@
 .field { display: grid; gap: 0.43rem; width: 100%; min-width: 0; }
 .field label { font-weight: 700; }
 .field p, .field label span { color: var(--muted); font-size: 0.86rem; }
+.field textarea,
+.field select,
 .field input:not([type="range"]) {
   width: 100%;
   min-height: 2.8rem;

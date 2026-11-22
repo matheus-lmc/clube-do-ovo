@@ -30,7 +30,7 @@ function form(fields: Record<string, string>) {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(requireClubUser).mockResolvedValue(reader);
-  vi.mocked(getBookEdition).mockResolvedValue({ book: edition, chapters: null });
+  vi.mocked(getBookEdition).mockResolvedValue({ book: edition, chapters: null, titles: [] });
 });
 
 test("cria clube e associação do líder na mesma operação, com dados canônicos da edição", async () => {
@@ -47,7 +47,7 @@ test("cria clube e associação do líder na mesma operação, com dados canôni
 });
 
 test("exige um total válido quando o catálogo omite a contagem de páginas", async () => {
-  vi.mocked(getBookEdition).mockResolvedValue({ book: { ...edition, pages: null }, chapters: null });
+  vi.mocked(getBookEdition).mockResolvedValue({ book: { ...edition, pages: null }, chapters: null, titles: [] });
   const create = (fields: Record<string, string>) => createClub({}, form({ requestId: clubId, name: "Clube", volume: edition.id, ...fields }));
   await expect(create({})).resolves.toHaveProperty("error");
   expect(db.club.create).not.toHaveBeenCalled();
@@ -159,7 +159,7 @@ test("corrige páginas manuais apenas se o novo total comportar os registros", a
   const { saveReading } = await import("@/app/clubes/actions");
   db.club.findFirst.mockResolvedValue(currentReading);
   db.clubMember.findFirst.mockResolvedValueOnce({ userId: reader.id }).mockResolvedValueOnce(null);
-  vi.mocked(getBookEdition).mockResolvedValue({ book: { ...edition, id: "old-edition", pages: null }, chapters: null });
+  vi.mocked(getBookEdition).mockResolvedValue({ book: { ...edition, id: "old-edition", pages: null }, chapters: null, titles: [] });
   const fields = { volume: "old-edition", revision: "2" };
   await expect(saveReading(clubId, {}, form({ ...fields, pages: "119" }))).resolves.toHaveProperty("error");
   expect(db.club.update).not.toHaveBeenCalled();

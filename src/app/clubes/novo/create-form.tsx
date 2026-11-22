@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowRight, Search } from "lucide-react";
 import type { BookEdition } from "@/lib/book-editions";
+import { parseChapterTitles } from "@/lib/club-rules";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClub, saveReading } from "../actions";
 import { Cover } from "../cover";
@@ -14,7 +15,7 @@ function editionDescription(book: BookEdition) {
   return [book.publisher, book.year, book.pages && `${book.pages} pág.`].filter(Boolean).join(" · ");
 }
 
-export type ReadingEdit = { clubId: string; revision: number; book: BookEdition | null; chapters: number | null };
+export type ReadingEdit = { clubId: string; revision: number; book: BookEdition | null; chapters: number | null; titles: string[]; chapterSource: string | null };
 
 export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   requestId?: string; reading?: ReadingEdit; onCancel?: () => void; onSaved?: () => void;
@@ -31,8 +32,10 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [chapters, setChapters] = useState(String(reading?.chapters ?? ""));
+  const [titles, setTitles] = useState(reading?.titles.join("\n") ?? "");
+  const [chapterSource, setChapterSource] = useState(reading?.chapterSource ?? "");
   const [pages, setPages] = useState(String(reading?.book?.pages ?? ""));
-  const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; failed?: boolean }>({ pending: false });
+  const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; titles?: string[]; failed?: boolean }>({ pending: false });
   const detailsRequest = useRef<AbortController | null>(null);
   const term = query.trim();
   const items = results.query === term ? results.items ?? [] : [];
@@ -77,6 +80,8 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
       const initial = reading?.book?.id === book.id ? reading : undefined;
       setPages(String(initial?.book?.pages ?? ""));
       setChapters(String(initial?.chapters ?? ""));
+      setTitles(initial?.titles.join("\n") ?? "");
+      setChapterSource(initial?.chapterSource ?? "");
     }
     setSuggestion({ pending: true });
     const request = new AbortController();
@@ -87,10 +92,10 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
     try {
       const response = await fetch(`/api/livros?${params}`, { signal: request.signal });
       if (!response.ok) throw new Error();
-      const details: { book: BookEdition; chapters: number | null } = await response.json();
+      const details: { book: BookEdition; chapters: number | null; titles: string[] } = await response.json();
       if (request.signal.aborted) return;
       setSelected(details.book);
-      setSuggestion({ pending: false, count: details.chapters ?? undefined });
+      setSuggestion({ pending: false, count: details.chapters ?? undefined, titles: details.titles });
     } catch {
       if (!request.signal.aborted) setSuggestion({ pending: false, failed: true });
     }
@@ -117,8 +122,11 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   }
 
   const sameEdition = reading?.book?.id === selected?.id;
+  const parsedTitles = parseChapterTitles(titles);
+  const chapterTotal = parsedTitles?.length || Number(chapters) || null;
   const resetsProgress = Boolean(reading?.book && selected &&
-    (!sameEdition || Boolean(chapters) !== Boolean(reading.chapters)));
+    (!sameEdition || chapterTotal !== reading.chapters ||
+      (reading.titles.length > 0 && JSON.stringify(parsedTitles) !== JSON.stringify(reading.titles))));
 
   return (
     <form action={action} className={reading ? styles.editorForm : styles.form} aria-busy={pending}>
@@ -184,8 +192,13 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
           <div className={styles.field}>
             <label htmlFor="chapter-total">Total de capítulos <span>(opcional)</span></label>
             <input id="chapter-total" name="chapters" type="number" min={1} max={1000} step={1}
-              value={chapters} onChange={(event) => setChapters(event.target.value)} aria-describedby="chapter-help" />
+              value={parsedTitles?.length || chapters} disabled={Boolean(parsedTitles?.length)} onChange={(event) => setChapters(event.target.value)} aria-describedby="chapter-help" />
             <p id="chapter-help">Deixe em branco para acompanhar a leitura por páginas.</p>
+            <label htmlFor="chapter-titles">Títulos dos capítulos <span>(opcional)</span></label>
+            <input type="hidden" name="chapterSource" value={chapterSource} />
+            <textarea id="chapter-titles" name="chapterTitles" rows={5} value={titles}
+              onChange={(event) => setTitles(event.target.value)} aria-describedby="chapter-titles-help" />
+            <p id="chapter-titles-help">Informe um título por linha, na ordem da edição.</p>
             {suggestion.pending && <Skeleton label="Consultando o sumário…" />}
             <p role="status" className={styles.searchStatus}>
               {suggestion.failed && "Os detalhes da edição estão indisponíveis. Você ainda pode informar os capítulos."}
@@ -196,8 +209,14 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
               </button>
             )}
             {suggestion.count && (
-              <button className={styles.button} type="button" onClick={() => setChapters(String(suggestion.count))}>
-                Usar sugestão de {suggestion.count} {suggestion.count === 1 ? "capítulo" : "capítulos"}
+              <button className={styles.button} type="button" onClick={() => {
+                setChapters(String(suggestion.count));
+                if (suggestion.titles?.length) {
+                  setTitles(suggestion.titles.join("\n"));
+                  setChapterSource("open-library");
+                }
+              }}>
+                Usar sugestão de {suggestion.count} {suggestion.count === 1 ? "capítulo" : "capítulos"}{suggestion.titles?.length ? " da Open Library" : ""}
               </button>
             )}
           </div>
@@ -205,7 +224,7 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
             <div className={styles.field}>
               <label htmlFor="page-total">Total de páginas da edição</label>
               <input id="page-total" name="pages" type="number" min={1} max={100000} step={1}
-                required={!chapters && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
+                required={!chapterTotal && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
               <p>{sameEdition ? "O total do catálogo tem prioridade." : "O catálogo não informou o total de páginas."}</p>
             </div>
           )}

@@ -7,8 +7,8 @@ import styles from "../clubs.module.css";
 
 type Member = { id: string; name: string; progress: number | null; self: boolean };
 
-export function ReadingProgress({ clubId, revision, total, byChapter, members }: {
-  clubId: string; revision: number; total: number; byChapter: boolean; members: Member[];
+export function ReadingProgress({ clubId, revision, total, byChapter, titles, members }: {
+  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; members: Member[];
 }) {
   const current = members.find((member) => member.self)?.progress;
   const [position, setPosition] = useState(String(current ?? 0));
@@ -34,11 +34,16 @@ export function ReadingProgress({ clubId, revision, total, byChapter, members }:
               aria-label={`${label}, barra editável`} aria-valuetext={`${sliderValue} de ${total}`}
               onChange={(event) => edit(event.target.value)}
               style={{ "--fill": `${sliderValue / total * 100}%` } as CSSProperties} />
-            <div className={styles.position}>
+            {byChapter && titles.length > 0 ? (
+              <select id="reading-position" name="progress" value={position} onChange={(event) => edit(event.target.value)}>
+                <option value="0">Ainda não comecei</option>
+                {titles.map((title, index) => <option key={index} value={index + 1}>{index + 1}. {title}</option>)}
+              </select>
+            ) : <div className={styles.position}>
               <input id="reading-position" name="progress" type="number" required min={0} max={total} step={1} inputMode="numeric"
                 value={position} onChange={(event) => edit(event.target.value)} aria-describedby="reading-total" />
               <span id="reading-total">de {total} {byChapter ? "capítulos" : "páginas"}</span>
-            </div>
+            </div>}
           </div>
           <button type="submit" className={styles.primary} disabled={pending}>
             {pending ? "Salvando…" : "Salvar progresso"}

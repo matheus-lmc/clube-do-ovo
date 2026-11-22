@@ -1,6 +1,6 @@
 import "server-only";
 
-import { canonicalIsbn, chapterSuggestion, editionSearchQuery, isbnValue, uniqueEditions } from "@/lib/club-rules";
+import { canonicalIsbn, contentsTitles, editionSearchQuery, isbnValue, uniqueEditions } from "@/lib/club-rules";
 import { getVolume, searchVolumes, type GoogleBooksVolume } from "@/lib/google-books";
 
 export type BookEdition = {
@@ -54,7 +54,7 @@ export async function searchBookEditions(query: string) {
   return uniqueEditions(items.map(toBookEdition)).slice(0, 8);
 }
 
-async function openLibraryChapters(isbn: string): Promise<number | null> {
+async function openLibraryChapters(isbn: string): Promise<string[] | null> {
   try {
     const headers = new Headers({ Accept: "application/json" });
     const contact = process.env.OPEN_LIBRARY_CONTACT_EMAIL?.trim();
@@ -71,7 +71,7 @@ async function openLibraryChapters(isbn: string): Promise<number | null> {
     return identifiers.some((identifier) => {
       const value = isbnValue(identifier);
       return value && canonicalIsbn(value) === expected;
-    }) ? chapterSuggestion(edition.table_of_contents) : null;
+    }) ? contentsTitles(edition.table_of_contents) : null;
   } catch {
     return null;
   }
@@ -80,5 +80,6 @@ async function openLibraryChapters(isbn: string): Promise<number | null> {
 export async function getBookEdition(id: string, isbn: string | null = null) {
   const [volume, chapters] = await Promise.all([getVolume(id), isbn ? openLibraryChapters(isbn) : null]);
   const book = toBookEdition(volume);
-  return { book, chapters: book.isbn && isbn && canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? chapters : null };
+  const titles = book.isbn && isbn && canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? chapters ?? [] : [];
+  return { book, chapters: titles.length || null, titles };
 }

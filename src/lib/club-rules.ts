@@ -53,3 +53,20 @@ export function progressValue(value: unknown, max: number): number | null {
   const position = Number(value);
   return Number.isSafeInteger(position) && position <= max ? position : null;
 }
+
+export function parseChapterTitles(value: unknown): string[] | null {
+  if (value === null) return [];
+  if (typeof value !== "string" || value.length > 302_000) return null;
+  const titles = value.split(/\r?\n/).map((title) => title.trim()).filter(Boolean);
+  return titles.length <= 1000 && titles.every((title) => title.length <= 300) ? titles : null;
+}
+
+export function contentsTitles(contents: unknown): string[] {
+  if (!Array.isArray(contents)) return [];
+  const titles = contents.flatMap((entry: unknown) => {
+    if (!entry || typeof entry !== "object") return [];
+    const title: unknown = Reflect.get(entry, "title");
+    return typeof title === "string" ? [title.replace(/\s+/g, " ").trim()] : [];
+  });
+  return parseChapterTitles(titles.join("\n")) ?? [];
+}

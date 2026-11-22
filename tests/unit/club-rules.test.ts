@@ -30,3 +30,10 @@ describe("club rules", () => {
     for (const invalid of ["", " ", "-1", "2.5", "1e2", "265"]) expect(progressValue(invalid, 264)).toBeNull();
   });
 });
+
+it("extrai títulos do sumário e valida a lista manual", async () => {
+  const { contentsTitles, parseChapterTitles } = await import("@/lib/club-rules");
+  expect(contentsTitles([{ title: "O encontro" }, { title: "O retorno" }])).toEqual(["O encontro", "O retorno"]);
+  expect(parseChapterTitles(" O encontro \r\n\nO retorno ")).toEqual(["O encontro", "O retorno"]);
+  expect(parseChapterTitles("x".repeat(301))).toBeNull();
+});
