@@ -14,7 +14,18 @@ function createPrismaClient() {
     throw new Error("Defina DATABASE_URL para conectar ao PostgreSQL do Supabase.");
   }
 
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  const ca = process.env.DATABASE_CA_CERT;
+  if (!ca) return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+
+  const url = new URL(connectionString);
+  // The pg URL parser otherwise replaces the explicit TLS settings.
+  for (const parameter of ["sslmode", "sslcert", "sslkey", "sslrootcert"]) {
+    url.searchParams.delete(parameter);
+  }
+
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url.href, ssl: { ca, rejectUnauthorized: true } }),
+  });
 }
 
 export function getPrisma() {
