@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useActionState, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useActionState, useEffect, useRef, useState, type CSSProperties } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { layoutChapterShortcuts } from "@/lib/club-rules";
 import { saveProgress } from "../actions";
@@ -10,10 +10,36 @@ type Member = { id: string; name: string; progress: number | null; self: boolean
 
 type Shortcut = { title: string; page: number };
 
-function ChapterTimeline({ source, page, total, onSelect }: {
-  source: Promise<Shortcut[]>; page: number; total: number; onSelect: (page: string) => void;
+function ChapterTimeline({ isbn, page, total, onSelect }: {
+  isbn: string; page: number; total: number; onSelect: (page: string) => void;
 }) {
-  const shortcuts = use(source);
+  const [shortcuts, setShortcuts] = useState<Shortcut[] | null>(null);
+
+  useEffect(() => {
+    const request = new AbortController();
+    const params = new URLSearchParams({ sumario: isbn, paginas: String(total) });
+    async function load() {
+      try {
+        const response = await fetch(`/api/livros?${params}`, { signal: request.signal });
+        const items: Shortcut[] = response.ok ? await response.json() : [];
+        if (!request.signal.aborted) setShortcuts(items);
+      } catch {
+        if (!request.signal.aborted) setShortcuts([]);
+      }
+    }
+    void load();
+    return () => request.abort();
+  }, [isbn, total]);
+
+  if (!shortcuts) return <div className={styles.chapterTimelinePlaceholder} aria-hidden="true" />;
+  if (!shortcuts.length) return null;
+
+  return <ChapterTrack shortcuts={shortcuts} page={page} total={total} onSelect={onSelect} />;
+}
+
+function ChapterTrack({ shortcuts, page, total, onSelect }: {
+  shortcuts: Shortcut[]; page: number; total: number; onSelect: (page: string) => void;
+}) {
   const rail = useRef<HTMLDivElement>(null);
   const [railWidth, setRailWidth] = useState(0);
   const active = shortcuts.findLastIndex((shortcut) => shortcut.page <= page);
@@ -29,8 +55,6 @@ function ChapterTimeline({ source, page, total, onSelect }: {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-
-  if (!shortcuts.length) return null;
 
   return (
     <div role="group" aria-label="Início dos capítulos" className={styles.chapterTimeline}>
@@ -64,8 +88,8 @@ function ChapterTimeline({ source, page, total, onSelect }: {
   );
 }
 
-export function ReadingProgress({ clubId, revision, total, byChapter, titles, shortcuts, members }: {
-  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; shortcuts: Promise<Shortcut[]> | null; members: Member[];
+export function ReadingProgress({ clubId, revision, total, byChapter, titles, isbn, members }: {
+  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; isbn: string | null; members: Member[];
 }) {
   const current = members.find((member) => member.self)?.progress;
   const [position, setPosition] = useState(String(current ?? 0));
@@ -94,10 +118,8 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, sh
                 aria-label={`${label}, barra editável`} aria-valuetext={byChapter ? `${chapterPosition}, ${sliderValue} de ${total} capítulos` : `${sliderValue} de ${total} páginas`}
                 onChange={(event) => edit(event.target.value)}
                 style={{ "--fill": `${sliderValue / total * 100}%` } as CSSProperties} />
-              {shortcuts && (
-                <Suspense fallback={<div className={styles.chapterTimelinePlaceholder} aria-hidden="true" />}>
-                  <ChapterTimeline source={shortcuts} page={sliderValue} total={total} onSelect={edit} />
-                </Suspense>
+              {!byChapter && isbn && (
+                <ChapterTimeline key={`${isbn}:${total}`} isbn={isbn} page={sliderValue} total={total} onSelect={edit} />
               )}
             </div>
           </div>

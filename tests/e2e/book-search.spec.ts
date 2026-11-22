@@ -94,8 +94,8 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
   const memberContext = await browser.newContext();
   try {
     await db.query(
-      `INSERT INTO "Club" (id, name, "leaderId", "inviteCode", "bookVolumeId", "bookTitle", "bookPages", "readingStartedAt")
-      VALUES ($1, 'Entre Páginas', $2, $3, 'livro-1', 'Livro de teste', 100, CURRENT_TIMESTAMP)`,
+      `INSERT INTO "Club" (id, name, "leaderId", "inviteCode", "bookVolumeId", "bookTitle", "bookPages", "bookIsbn", "readingStartedAt")
+      VALUES ($1, 'Entre Páginas', $2, $3, 'livro-1', 'Livro de teste', 100, '9780000000002', CURRENT_TIMESTAMP)`,
       [id, reader.id, invite],
     );
     await db.query(
@@ -105,6 +105,11 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
     await signIn(context);
     await signIn(memberContext, member);
     const memberPage = await memberContext.newPage();
+    let summaryRequests = 0;
+    await memberPage.route("**/api/livros?sumario=*", async (route) => {
+      summaryRequests++;
+      await route.fulfill({ json: summaryRequests === 1 ? [{ title: "Primeiro capítulo", page: 7 }] : [] });
+    });
     await memberPage.goto("/");
     const reading = memberPage.getByRole("link", { name: "Livro de teste" });
     const preview = memberPage.getByText("Progresso ainda não registrado");
@@ -132,9 +137,13 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
     await expect(memberPage).toHaveURL(new RegExp(`/clubes/${id}$`));
     await expect(memberPage.getByRole("heading", { name: "Livro de teste" })).toBeVisible();
     await expect(memberPage.getByText("Editar clube", { exact: true })).toHaveCount(0);
+    const timeline = memberPage.getByRole("group", { name: "Início dos capítulos" });
+    await expect(timeline.getByRole("button", { name: /Primeiro capítulo/ })).toBeVisible();
     await memberPage.getByRole("spinbutton", { name: "Página atual" }).fill("25");
     await memberPage.getByRole("button", { name: "Salvar progresso" }).click();
     await expect(memberPage.getByText("Progresso atualizado.")).toBeVisible();
+    await expect(timeline.getByRole("button", { name: /Primeiro capítulo/ })).toBeVisible();
+    expect(summaryRequests).toBe(1);
     await memberPage.setViewportSize({ width: 390, height: 844 });
     await memberPage.goto("/");
     await expect(memberPage.getByText("25 de 100 páginas")).toBeHidden();
