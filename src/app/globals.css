@@ -48,24 +48,43 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    color-scheme: light dark;
+    --ovo-paper: light-dark(#fff8e9, #27231d);
+    --ovo-surface: light-dark(#fffcf5, #332e25);
+    --ovo-ink: light-dark(#231e19, #f9eed9);
+    --ovo-muted: light-dark(#5e5142, #c6b8a1);
+    --ovo-line: light-dark(#d4c7b2, #655748);
+    --ovo-input: light-dark(#a79b86, #8a7a65);
+    --ovo-sage: light-dark(#dce9d3, #354238);
+    --ovo-cover: light-dark(#ccd9c0, #3b4b3e);
+    --ovo-forest: light-dark(#436650, #a7c5aa);
+    --ovo-track: light-dark(#eadfc9, #514735);
+    --ovo-yolk: light-dark(#ffc83d, #eebf56);
+    --ovo-highlight: light-dark(#f8ecc8, #574624);
+    --ovo-on-yolk: #272018;
+    --ovo-danger: light-dark(#8d2a21, #f0aa9a);
+    --ovo-danger-fill: light-dark(#8d2a21, #844336);
+    --ovo-on-danger: #fff4eb;
+    --ovo-error-surface: light-dark(#f9e0d5, #4c302a);
+
+    --background: var(--ovo-paper);
+    --foreground: var(--ovo-ink);
+    --card: var(--ovo-surface);
+    --card-foreground: var(--ovo-ink);
+    --popover: var(--ovo-surface);
+    --popover-foreground: var(--ovo-ink);
+    --primary: var(--ovo-yolk);
+    --primary-foreground: var(--ovo-on-yolk);
+    --secondary: var(--ovo-sage);
+    --secondary-foreground: var(--ovo-ink);
+    --muted: var(--ovo-surface);
+    --muted-foreground: var(--ovo-muted);
+    --accent: var(--ovo-highlight);
+    --accent-foreground: var(--ovo-ink);
+    --destructive: var(--ovo-danger-fill);
+    --border: var(--ovo-line);
+    --input: var(--ovo-input);
+    --ring: var(--ovo-forest);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -126,4 +145,13 @@
   html {
     @apply font-sans;
     }
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+.theme-actions {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.4rem, 2vw, 0.85rem);
 }

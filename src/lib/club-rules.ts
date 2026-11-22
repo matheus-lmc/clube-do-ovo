@@ -53,3 +53,50 @@ export function progressValue(value: unknown, max: number): number | null {
   const position = Number(value);
   return Number.isSafeInteger(position) && position <= max ? position : null;
 }
+
+export function parseChapterTitles(value: unknown): string[] | null {
+  if (value === null) return [];
+  if (typeof value !== "string" || value.length > 302_000) return null;
+  const titles = value.split(/\r?\n/).map((title) => title.trim()).filter(Boolean);
+  return titles.length <= 1000 && titles.every((title) => title.length <= 300) ? titles : null;
+}
+
+function contentsEntries(contents: unknown) {
+  if (!Array.isArray(contents)) return [];
+  return contents.slice(0, 1000).flatMap((entry: unknown) => {
+    if (!entry || typeof entry !== "object") return [];
+    const title = ["title", "label"].map((key) => Reflect.get(entry, key))
+      .find((value): value is string => typeof value === "string" && Boolean(value.trim()));
+    const clean = title?.replace(/\s+/g, " ").trim();
+    if (!clean || /^(pref[áa]cio|sum[áa]rio|[íi]ndice|ap[êe]ndice|bibliografia|agradecimentos|preface|appendix|acknowledgments)(?:$|[\s:])/iu.test(clean)) return [];
+    if (clean.length > 300) return [];
+    const page: unknown = Reflect.get(entry, "pagenum");
+    return [{ title: clean, page }];
+  });
+}
+
+export function contentsTitles(contents: unknown): string[] {
+  return contentsEntries(contents).map(({ title }) => title);
+}
+
+export function chapterShortcuts(contents: unknown, max: number) {
+  return contentsEntries(contents).flatMap(({ title, page }) => {
+    const number = progressValue(typeof page === "number" ? String(page) : page, max);
+    return number ? [{ title, page: number }] : [];
+  }).sort((first, second) => first.page - second.page);
+}
+
+export function layoutChapterShortcuts(pages: number[], total: number, width: number, cardWidth: number, active: number) {
+  const inset = 10.4;
+  const cards: { index: number; left: number }[] = [];
+  const candidates = pages.map((_, index) => index);
+  candidates.sort((a, b) => Math.abs(a - active) - Math.abs(b - active));
+  for (const index of candidates) {
+    const marker = inset + (width - 2 * inset) * pages[index] / total;
+    const left = Math.max(0, Math.min(marker - cardWidth / 2, width - cardWidth));
+    if (cards.some((card) => Math.abs(card.left - left) < cardWidth + 8)) continue;
+    cards.push({ index, left });
+    if (cards.length === 3) break;
+  }
+  return cards.sort((first, second) => first.index - second.index);
+}

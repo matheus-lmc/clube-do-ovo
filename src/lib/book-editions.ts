@@ -1,6 +1,6 @@
 import "server-only";
 
-import { canonicalIsbn, chapterSuggestion, editionSearchQuery, isbnValue, uniqueEditions } from "@/lib/club-rules";
+import { canonicalIsbn, chapterShortcuts, contentsTitles, editionSearchQuery, isbnValue, uniqueEditions } from "@/lib/club-rules";
 import { getVolume, searchVolumes, type GoogleBooksVolume } from "@/lib/google-books";
 
 export type BookEdition = {
@@ -54,7 +54,7 @@ export async function searchBookEditions(query: string) {
   return uniqueEditions(items.map(toBookEdition)).slice(0, 8);
 }
 
-async function openLibraryChapters(isbn: string): Promise<number | null> {
+async function openLibraryContents(isbn: string): Promise<unknown> {
   try {
     const headers = new Headers({ Accept: "application/json" });
     const contact = process.env.OPEN_LIBRARY_CONTACT_EMAIL?.trim();
@@ -71,14 +71,23 @@ async function openLibraryChapters(isbn: string): Promise<number | null> {
     return identifiers.some((identifier) => {
       const value = isbnValue(identifier);
       return value && canonicalIsbn(value) === expected;
-    }) ? chapterSuggestion(edition.table_of_contents) : null;
+    }) ? edition.table_of_contents : null;
   } catch {
     return null;
   }
 }
 
+export async function getChapterShortcuts(isbn: string | null, total: number) {
+  const validIsbn = isbnValue(isbn);
+  return validIsbn ? chapterShortcuts(await openLibraryContents(validIsbn), total) : [];
+}
+
 export async function getBookEdition(id: string, isbn: string | null = null) {
-  const [volume, chapters] = await Promise.all([getVolume(id), isbn ? openLibraryChapters(isbn) : null]);
+  const [volume, lookup] = await Promise.all([getVolume(id), isbn ? openLibraryContents(isbn) : null]);
   const book = toBookEdition(volume);
-  return { book, chapters: book.isbn && isbn && canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? chapters : null };
+  const contents = !book.isbn ? null : isbn
+    ? canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? lookup : null
+    : await openLibraryContents(book.isbn);
+  const titles = contentsTitles(contents);
+  return { book, chapters: titles.length || null, titles, shortcuts: chapterShortcuts(contents, book.pages ?? 100_000) };
 }

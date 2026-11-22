@@ -30,3 +30,31 @@ describe("club rules", () => {
     for (const invalid of ["", " ", "-1", "2.5", "1e2", "265"]) expect(progressValue(invalid, 264)).toBeNull();
   });
 });
+
+it("extrai títulos do sumário e valida a lista manual", async () => {
+  const { contentsTitles, parseChapterTitles } = await import("@/lib/club-rules");
+  expect(contentsTitles([{ title: "O encontro" }, { title: "O retorno" }])).toEqual(["O encontro", "O retorno"]);
+  expect(parseChapterTitles(" O encontro \r\n\nO retorno ")).toEqual(["O encontro", "O retorno"]);
+  expect(parseChapterTitles("x".repeat(301))).toBeNull();
+});
+
+it("usa apenas páginas de início informadas no sumário e dentro da edição", async () => {
+  const { chapterShortcuts } = await import("@/lib/club-rules");
+  expect(chapterShortcuts([
+    { title: "Prefácio", pagenum: "2" },
+    { title: "Primeiro capítulo", pagenum: "7" },
+    { label: "Capítulo 2", pagenum: 23 },
+    { title: "Sem página", pagenum: "" },
+    { title: "Fora da edição", pagenum: "101" },
+    { title: "Página romana", pagenum: "iv" },
+  ], 100)).toEqual([{ title: "Primeiro capítulo", page: 7 }, { title: "Capítulo 2", page: 23 }]);
+});
+
+it("prioriza o capítulo atual sem empilhar cards quando o sumário é denso", async () => {
+  const { layoutChapterShortcuts } = await import("@/lib/club-rules");
+  const pages = Array.from({ length: 100 }, (_, index) => index + 1);
+  const cards = layoutChapterShortcuts(pages, 100, 320, 80, 49);
+  expect(cards.some(({ index }) => index === 49)).toBe(true);
+  expect(cards.length).toBeLessThanOrEqual(3);
+  expect(cards.every(({ left }, index) => index === 0 || left >= cards[index - 1].left + 88)).toBe(true);
+});

@@ -67,7 +67,7 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
         )}
       </section>
       {total && (
-        <ReadingProgress key={`${id}:${club.readingRevision}`} clubId={id} revision={club.readingRevision} total={total} byChapter={club.chapterTotal !== null}
+        <ReadingProgress key={`${id}:${club.readingRevision}`} clubId={id} revision={club.readingRevision} total={total} byChapter={club.chapterTotal !== null} titles={club.chapterTitles} isbn={club.bookIsbn}
           members={[current, ...club.members.filter((member) => member.userId !== user.id)].map((member) => ({
             id: member.userId, name: member.displayName, progress: member.progress, self: member.userId === user.id,
           }))} />

@@ -51,7 +51,7 @@ test("mostra skeleton durante a busca e permite escolher um resultado pelo tecla
     const params = new URL(route.request().url()).searchParams;
     if (params.has("volume")) {
       await details;
-      await route.fulfill({ json: { book: edition, chapters: 12 } });
+      await route.fulfill({ json: { book: edition, shortcuts: [{ title: "Início", page: 7 }, { title: "Fim", page: 23 }] } });
     } else {
       await search;
       await route.fulfill({ json: [edition] });
@@ -74,7 +74,8 @@ test("mostra skeleton durante a busca e permite escolher um resultado pelo tecla
     await input.press("Enter");
     await expect(page.getByRole("status").filter({ hasText: "Consultando o sumário" })).toBeAttached();
     releaseDetails();
-    await expect(page.getByRole("button", { name: "Usar sugestão de 12 capítulos" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "2 atalhos de capítulos encontrados" })).toBeVisible();
+    await expect(page.getByLabel("Total de capítulos")).toHaveCount(0);
     await expect(page.locator("[data-skeleton-row]")).toHaveCount(0);
   } finally {
     releaseSearch();
@@ -93,8 +94,8 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
   const memberContext = await browser.newContext();
   try {
     await db.query(
-      `INSERT INTO "Club" (id, name, "leaderId", "inviteCode", "bookVolumeId", "bookTitle", "bookPages", "readingStartedAt")
-      VALUES ($1, 'Entre Páginas', $2, $3, 'livro-1', 'Livro de teste', 100, CURRENT_TIMESTAMP)`,
+      `INSERT INTO "Club" (id, name, "leaderId", "inviteCode", "bookVolumeId", "bookTitle", "bookPages", "bookIsbn", "readingStartedAt")
+      VALUES ($1, 'Entre Páginas', $2, $3, 'livro-1', 'Livro de teste', 100, '9780000000002', CURRENT_TIMESTAMP)`,
       [id, reader.id, invite],
     );
     await db.query(
@@ -104,6 +105,11 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
     await signIn(context);
     await signIn(memberContext, member);
     const memberPage = await memberContext.newPage();
+    let summaryRequests = 0;
+    await memberPage.route("**/api/livros?sumario=*", async (route) => {
+      summaryRequests++;
+      await route.fulfill({ json: summaryRequests === 1 ? [{ title: "Primeiro capítulo", page: 7 }] : [] });
+    });
     await memberPage.goto("/");
     const reading = memberPage.getByRole("link", { name: "Livro de teste" });
     const preview = memberPage.getByText("Progresso ainda não registrado");
@@ -131,9 +137,13 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
     await expect(memberPage).toHaveURL(new RegExp(`/clubes/${id}$`));
     await expect(memberPage.getByRole("heading", { name: "Livro de teste" })).toBeVisible();
     await expect(memberPage.getByText("Editar clube", { exact: true })).toHaveCount(0);
+    const timeline = memberPage.getByRole("group", { name: "Início dos capítulos" });
+    await expect(timeline.getByRole("button", { name: /Primeiro capítulo/ })).toBeVisible();
     await memberPage.getByRole("spinbutton", { name: "Página atual" }).fill("25");
     await memberPage.getByRole("button", { name: "Salvar progresso" }).click();
     await expect(memberPage.getByText("Progresso atualizado.")).toBeVisible();
+    await expect(timeline.getByRole("button", { name: /Primeiro capítulo/ })).toBeVisible();
+    expect(summaryRequests).toBe(1);
     await memberPage.setViewportSize({ width: 390, height: 844 });
     await memberPage.goto("/");
     await expect(memberPage.getByText("25 de 100 páginas")).toBeHidden();
@@ -158,12 +168,22 @@ test("líder renomeia, remove a leitura e confirma a exclusão do clube", async 
     expect(await readingDialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.keyboard.press("Escape");
     await expect(editReading).toBeFocused();
-    await editReading.click();
-    await readingDialog.getByLabel("Total de capítulos").fill("10");
-    await readingDialog.getByRole("checkbox").check();
-    await readingDialog.getByRole("button", { name: "Salvar livro" }).click();
-    await expect(editReading).toBeFocused();
-    await expect(page.getByRole("spinbutton", { name: "Capítulos concluídos" })).toBeVisible();
+    await db.query(
+      `UPDATE "Club" SET "chapterTotal" = 2, "chapterTitles" = ARRAY['Início', 'Fim'],
+        "chapterSource" = 'open-library', "readingRevision" = "readingRevision" + 1 WHERE id = $1`,
+      [id],
+    );
+    await db.query(`UPDATE "ClubMember" SET progress = NULL WHERE "clubId" = $1`, [id]);
+    await page.reload();
+    const slider = page.getByRole("slider", { name: /Último capítulo concluído/ });
+    await expect(slider).toBeVisible();
+    await expect(page.getByText("Ainda não comecei", { exact: true })).toBeVisible();
+    await slider.press("ArrowRight");
+    await expect(page.getByText("Início", { exact: true })).toBeVisible();
+    await slider.press("End");
+    await expect(page.getByText("Fim", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Salvar progresso" }).click();
+    await expect(page.getByText("Progresso atualizado.")).toBeVisible();
     await editReading.click();
     await page.getByRole("button", { name: "Remover livro", exact: true }).click();
     await page.getByRole("button", { name: "Confirmar: remover livro" }).click();

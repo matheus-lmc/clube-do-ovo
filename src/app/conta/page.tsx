@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -28,6 +29,7 @@ export default function AccountPage({ searchParams }: PageProps<"/conta">) {
     <div className={styles.page}>
       <header className={styles.header}>
         <HomeLink />
+        <ThemeToggle />
       </header>
       <main className={styles.content}>
         <h1>Minha conta</h1>

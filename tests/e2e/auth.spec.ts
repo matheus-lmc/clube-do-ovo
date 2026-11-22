@@ -32,3 +32,25 @@ test("protege as páginas de clubes e o catálogo para visitantes sem sessão", 
   const catalog = await page.request.get("/api/livros?q=Torto+Arado");
   expect(catalog.status()).toBe(401);
 });
+
+test("alterna o tema pelo cabeçalho e mantém a escolha após navegar e recarregar", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  const toggle = page.getByRole("switch", { name: "Tema escuro" });
+  await expect(toggle).toBeChecked();
+  await expect(toggle.locator('svg[data-theme-icon="dark"]')).toBeVisible();
+  await expect(toggle).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(toggle).toHaveCSS("border-top-width", "0px");
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle.locator('svg[data-theme-icon="light"]')).toBeVisible();
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "light");
+  await page.getByRole("link", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/entrar$/);
+  await page.reload();
+  await expect(toggle).not.toBeChecked();
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "light");
+  await toggle.press("Space");
+  await expect(toggle).toBeChecked();
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+});

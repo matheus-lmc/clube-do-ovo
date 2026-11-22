@@ -1,0 +1,2 @@
+ALTER TABLE "Club" ADD COLUMN "chapterTitles" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  ADD COLUMN "chapterSource" TEXT;

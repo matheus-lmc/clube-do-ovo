@@ -1,11 +1,11 @@
 .page {
-  --paper: #fff8e9;
-  --ink: #231e19;
-  --muted: #5e5142;
-  --sage: #dce9d3;
-  --yolk: #ffc83d;
-  --line: #d4c7b2;
-  --focus: #436650;
+  --paper: var(--ovo-paper);
+  --ink: var(--ovo-ink);
+  --muted: var(--ovo-muted);
+  --sage: var(--ovo-sage);
+  --yolk: var(--ovo-yolk);
+  --line: var(--ovo-line);
+  --focus: var(--ovo-forest);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   min-height: 100svh;
@@ -42,7 +42,7 @@
   font-weight: 600;
   letter-spacing: -0.04em;
 }
-.content h1 em { display: block; color: #334f3c; }
+.content h1 em { display: block; color: var(--ovo-forest); }
 .content > p:not(.notice) { max-width: 33ch; margin-top: 1.25rem; color: var(--muted); font-size: clamp(1rem, 1.75vw, 1.125rem); line-height: 1.55; }
 .signIn, .content > .notice { margin-top: 1.75rem; }
 .actions { display: grid; justify-items: start; gap: 0.65rem; }
@@ -54,10 +54,10 @@
   width: min(100%, 20rem);
   min-height: 3rem;
   padding: 0.65rem 12px;
-  border: 1px solid #747775;
+  border: 1px solid var(--ovo-input);
   border-radius: 0.35rem;
-  background: #fff;
-  color: #1f1f1f;
+  background: var(--ovo-surface);
+  color: var(--ovo-ink);
   font: 600 0.9rem/1.3 var(--font-sans);
   cursor: pointer;
   transition: border-color 120ms ease-out, box-shadow 120ms ease-out, translate 110ms var(--ease-out);
@@ -77,8 +77,8 @@
   margin-bottom: 0.75rem;
   padding: 0.6rem 0.8rem;
   border-radius: 0.3rem;
-  background: #f9e0d5;
-  color: #7f2e21;
+  background: var(--ovo-error-surface);
+  color: var(--ovo-danger);
 }
 .art {
   aspect-ratio: 1.03;

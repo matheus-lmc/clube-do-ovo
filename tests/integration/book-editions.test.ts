@@ -77,7 +77,7 @@ test("queries providers together and only uses chapters from the same edition", 
     expect.stringContaining("googleapis"), "https://openlibrary.org/isbn/6580309318.json",
   ]);
   resolveGoogle(Response.json(volume));
-  await expect(result).resolves.toMatchObject({ book: { isbn }, chapters: 2 });
+  await expect(result).resolves.toMatchObject({ book: { isbn }, chapters: 2, titles: ["Capítulo 1", "Capítulo 2"] });
 });
 
 test("degrades to pages for unavailable or mismatched chapter information", async () => {
@@ -109,4 +109,19 @@ test("Google Books validates documented search options and empty catalog respons
   await expect(getVolume("..")).rejects.toThrow();
   fetchMock.mockResolvedValue(Response.json({ totalItems: 0 }));
   await expect(searchVolumes("livro")).resolves.toEqual({ totalItems: 0, items: [] });
+});
+
+test("loads chapter shortcuts independently of edition search with a valid page limit", async () => {
+  const request = (pages: string) => new Request(`${url}?sumario=${isbn}&paginas=${pages}`);
+  expect((await GET(request("0"))).status).toBe(400);
+  expect(fetchMock).not.toHaveBeenCalled();
+
+  fetchMock.mockResolvedValue(Response.json({
+    isbn_13: [isbn],
+    table_of_contents: [{ title: "Início", pagenum: "7" }, { title: "Fim", pagenum: "31" }],
+  }));
+  const response = await GET(request("30"));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual([{ title: "Início", page: 7 }]);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
 });

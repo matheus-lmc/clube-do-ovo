@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -25,8 +26,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${dmSans.variable} ${fraunces.variable}`}>
-      <body>{children}</body>
+    <html lang="pt-BR" suppressHydrationWarning className={`${dmSans.variable} ${fraunces.variable}`}>
+      <body>
+        <Script id="clube-do-ovo-theme" strategy="beforeInteractive">{`
+          try {
+            const theme = localStorage.getItem("clube-do-ovo-theme");
+            if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+          } catch {}
+        `}</Script>
+        {children}
+      </body>
     </html>
   );
 }

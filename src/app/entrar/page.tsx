@@ -1,3 +1,4 @@
+import { ThemeToggle } from "../theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
@@ -42,7 +43,10 @@ export default function SignInPage({ searchParams }: PageProps<"/entrar">) {
       <header className={styles.header}>
         <div className={styles.container}>
           <HomeLink />
-          <Link href="/" className={styles.back} aria-label="Voltar à página inicial"><ArrowLeft size={17} aria-hidden /> Início</Link>
+          <div className="theme-actions">
+            <Link href="/" className={styles.back} aria-label="Voltar à página inicial"><ArrowLeft size={17} aria-hidden /> Início</Link>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <main className={`${styles.container} ${styles.main}`}>

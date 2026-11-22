@@ -1,3 +1,4 @@
+import { ThemeToggle } from "./theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ArrowUp, BookOpen, Plus, Ticket } from "lucide-react";
 import Image from "next/image";
@@ -106,6 +107,7 @@ async function HomeContent() {
                 <Link href="/entrar" className={styles.navSignIn}>Entrar <ArrowRight size={16} aria-hidden /></Link>
               </>
             )}
+            <ThemeToggle />
           </nav>
         </div>
       </header>

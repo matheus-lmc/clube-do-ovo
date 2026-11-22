@@ -30,9 +30,8 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   const [selected, setSelected] = useState<BookEdition | null>(reading?.book ?? null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [chapters, setChapters] = useState(String(reading?.chapters ?? ""));
   const [pages, setPages] = useState(String(reading?.book?.pages ?? ""));
-  const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; failed?: boolean }>({ pending: false });
+  const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; failed?: boolean; checked?: boolean }>({ pending: false });
   const detailsRequest = useRef<AbortController | null>(null);
   const term = query.trim();
   const items = results.query === term ? results.items ?? [] : [];
@@ -76,7 +75,6 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
     if (selected?.id !== book.id) {
       const initial = reading?.book?.id === book.id ? reading : undefined;
       setPages(String(initial?.book?.pages ?? ""));
-      setChapters(String(initial?.chapters ?? ""));
     }
     setSuggestion({ pending: true });
     const request = new AbortController();
@@ -87,10 +85,10 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
     try {
       const response = await fetch(`/api/livros?${params}`, { signal: request.signal });
       if (!response.ok) throw new Error();
-      const details: { book: BookEdition; chapters: number | null } = await response.json();
+      const details: { book: BookEdition; shortcuts: { title: string; page: number }[] } = await response.json();
       if (request.signal.aborted) return;
       setSelected(details.book);
-      setSuggestion({ pending: false, count: details.chapters ?? undefined });
+      setSuggestion({ pending: false, count: details.shortcuts.length, checked: true });
     } catch {
       if (!request.signal.aborted) setSuggestion({ pending: false, failed: true });
     }
@@ -118,7 +116,7 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
 
   const sameEdition = reading?.book?.id === selected?.id;
   const resetsProgress = Boolean(reading?.book && selected &&
-    (!sameEdition || Boolean(chapters) !== Boolean(reading.chapters)));
+    (!sameEdition || reading.chapters !== null));
 
   return (
     <form action={action} className={reading ? styles.editorForm : styles.form} aria-busy={pending}>
@@ -181,37 +179,26 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
       </div>
       {selected && (
         <>
-          <div className={styles.field}>
-            <label htmlFor="chapter-total">Total de capítulos <span>(opcional)</span></label>
-            <input id="chapter-total" name="chapters" type="number" min={1} max={1000} step={1}
-              value={chapters} onChange={(event) => setChapters(event.target.value)} aria-describedby="chapter-help" />
-            <p id="chapter-help">Deixe em branco para acompanhar a leitura por páginas.</p>
-            {suggestion.pending && <Skeleton label="Consultando o sumário…" />}
+          {suggestion.pending ? <Skeleton label="Consultando o sumário…" /> : (
             <p role="status" className={styles.searchStatus}>
-              {suggestion.failed && "Os detalhes da edição estão indisponíveis. Você ainda pode informar os capítulos."}
+              {suggestion.count
+                ? `${suggestion.count} ${suggestion.count === 1 ? "atalho de capítulo encontrado" : "atalhos de capítulos encontrados"} no catálogo.`
+                : suggestion.failed
+                  ? "O sumário está indisponível. Você pode acompanhar a leitura por páginas."
+                  : suggestion.checked && "O catálogo não informou as páginas de início dos capítulos desta edição."}
             </p>
-            {suggestion.failed && (
-              <button className={styles.button} type="button" onClick={() => void choose(selected)}>
-                Consultar edição novamente
-              </button>
-            )}
-            {suggestion.count && (
-              <button className={styles.button} type="button" onClick={() => setChapters(String(suggestion.count))}>
-                Usar sugestão de {suggestion.count} {suggestion.count === 1 ? "capítulo" : "capítulos"}
-              </button>
-            )}
-          </div>
+          )}
           {(!selected.pages || sameEdition) && (
             <div className={styles.field}>
               <label htmlFor="page-total">Total de páginas da edição</label>
               <input id="page-total" name="pages" type="number" min={1} max={100000} step={1}
-                required={!chapters && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
+                required={!selected.pages && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
               <p>{sameEdition ? "O total do catálogo tem prioridade." : "O catálogo não informou o total de páginas."}</p>
             </div>
           )}
         </>
       )}
-      {resetsProgress && <label className={styles.readingWarning}><input type="checkbox" name="confirm" value="yes" required /> Confirmo que o progresso dos membros será apagado.</label>}
+      {resetsProgress && <label className={styles.readingWarning}><input type="checkbox" name="confirm" value="yes" required /> {sameEdition ? "Confirmo a mudança para páginas. O progresso salvo em capítulos será zerado." : "Confirmo que o progresso dos membros será apagado."}</label>}
       {state.error && <p className={styles.error} role="alert">{state.error}</p>}
       <div className={reading ? styles.editorActions : undefined}>
         {onCancel && <button className={styles.button} type="button" onClick={onCancel} disabled={pending}>Cancelar</button>}
