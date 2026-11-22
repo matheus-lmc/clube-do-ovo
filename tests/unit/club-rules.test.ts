@@ -49,3 +49,13 @@ it("usa apenas páginas de início informadas no sumário e dentro da edição",
     { title: "Página romana", pagenum: "iv" },
   ], 100)).toEqual([{ title: "Primeiro capítulo", page: 7 }, { title: "Capítulo 2", page: 23 }]);
 });
+
+it("mantém os marcadores proporcionais e distribui atalhos próximos em linhas distintas", async () => {
+  const { layoutChapterShortcuts } = await import("@/lib/club-rules");
+  const layout = layoutChapterShortcuts([0, 5, 100], 100, 320, 80, 8, 10);
+  expect(layout).toEqual([
+    { marker: 10, left: 0, lane: 0 },
+    { marker: 25, left: 0, lane: 1 },
+    { marker: 310, left: 240, lane: 0 },
+  ]);
+});

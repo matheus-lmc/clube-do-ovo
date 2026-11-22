@@ -85,3 +85,17 @@ export function chapterShortcuts(contents: unknown, max: number) {
     return number ? [{ title, page: number }] : [];
   }).sort((first, second) => first.page - second.page);
 }
+
+export function layoutChapterShortcuts(
+  pages: number[], total: number, width: number, cardWidth: number, gap: number, inset: number,
+) {
+  const laneEnds: number[] = [];
+  return pages.map((page) => {
+    const marker = inset + (width - 2 * inset) * page / total;
+    const left = Math.max(0, Math.min(marker - cardWidth / 2, width - cardWidth));
+    const available = laneEnds.findIndex((end) => end + gap <= left);
+    const lane = available < 0 ? laneEnds.length : available;
+    laneEnds[lane] = left + cardWidth;
+    return { marker, left, lane };
+  });
+}

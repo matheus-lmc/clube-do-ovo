@@ -223,7 +223,9 @@
 .reading > div > p { font-size: 0.91rem; color: var(--muted); }
 
 .progressSection { margin-top: 1.85rem; }
-.progressLayout { margin-top: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+.progressLayout { margin-top: 1rem; grid-template-columns: minmax(0, 1fr); }
+.memberProgress { min-width: 0; }
+.memberProgress h3 { margin: 0 0 0.35rem; font-size: 1rem; }
 .progressForm { border: 1px solid var(--line); background: var(--white); padding: 1rem; border-radius: 0.3rem; }
 .position input[type="number"] { width: 6rem; font-variant-numeric: tabular-nums; }
 .position span { color: var(--muted); font-size: 0.91rem; }
@@ -421,22 +423,51 @@
   .readingActions .editorTrigger > button { width: 100%; }
 }
 
-.chapterShortcuts { border: 0; padding: 0; margin: 0; min-width: 0; }
-.chapterShortcuts legend { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; }
-.chapterCards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 0.5rem; }
+.sliderTrack { min-width: 0; }
+.sliderTrack > input { display: block; margin: 0; }
+.chapterRail {
+  --lane-height: 58px;
+  --rail-top: 14px;
+  position: relative;
+  margin-top: -0.45rem;
+  height: calc(var(--rail-top) + var(--lanes) * var(--lane-height));
+}
+.chapterMarker {
+  position: absolute;
+  left: var(--marker);
+  top: 0;
+  height: calc(var(--rail-top) + var(--lane) * var(--lane-height));
+  border-left: 1px solid #8b7955;
+}
+.chapterMarker::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--forest);
+}
 .chapterCard {
+  position: absolute;
+  top: calc(var(--rail-top) + var(--lane) * var(--lane-height));
+  left: var(--card-left);
+  width: var(--card-width);
+  height: 50px;
   display: grid;
-  gap: 0.2rem;
-  padding: 0.55rem 0.65rem;
+  gap: 2px;
+  align-content: center;
+  padding: 4px 7px;
   border: 1px solid #cdbfaa;
-  border-radius: 0.5rem;
-  background: transparent;
+  border-radius: 0.4rem;
+  background: var(--white);
   color: inherit;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   text-align: left;
-  overflow-wrap: anywhere;
   cursor: pointer;
 }
+.chapterCard strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .chapterCard span { color: var(--forest); }
 .chapterCard:hover, .chapterCard[aria-pressed="true"] { background: #f8ecc8; border-color: #6a562f; }
