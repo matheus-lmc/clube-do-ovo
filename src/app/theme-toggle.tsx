@@ -1,7 +1,6 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Book, Moon, Sun } from "lucide-react";
 import styles from "./theme-toggle.module.css";
 
 const storageKey = "clube-do-ovo-theme";
@@ -31,6 +30,21 @@ function subscribe(onChange: () => void) {
   };
 }
 
+function BookThemeIcon({ theme }: { theme: "light" | "dark" }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.6"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"
+      data-theme-icon={theme} className={theme === "light" ? styles.sun : styles.moon}>
+      <path d="M23 20H7.75a2.5 2.5 0 0 0 0 5H23M23 20V4.5c0-.83-.67-1.5-1.5-1.5H8.75a3.5 3.5 0 0 0-3.5 3.5v16M8.5 3v17M9.75 22.5H22" />
+      {theme === "light" ? (
+        <path d="M18 11.6a2.45 2.45 0 1 1-4.9 0 2.45 2.45 0 0 1 4.9 0Zm-2.45-4.95v.8m0 8.3v.8m4.95-4.95h-.8m-8.3 0h-.8m8.45-3.5-.56.56m-5.86 5.86-.56.56m6.98 0-.56-.56m-5.86-5.86-.56-.56" />
+      ) : (
+        <path d="M19.25 13.4a4.25 4.25 0 1 1-4.9-5.95 4.37 4.37 0 0 0 4.9 5.95Z" />
+      )}
+    </svg>
+  );
+}
+
 export function ThemeToggle() {
   const dark = useSyncExternalStore(subscribe, isDark, () => false);
 
@@ -48,11 +62,8 @@ export function ThemeToggle() {
   return (
     <button type="button" role="switch" aria-label="Tema escuro" aria-checked={dark}
       title={dark ? "Ativar tema claro" : "Ativar tema escuro"} className={styles.toggle} onClick={toggle}>
-      <span className={styles.book} aria-hidden="true">
-        <Book size={27} strokeWidth={1.55} />
-        <Sun size={12} strokeWidth={2} data-theme-icon="light" className={styles.sun} />
-        <Moon size={11} strokeWidth={2} data-theme-icon="dark" className={styles.moon} />
-      </span>
+      <BookThemeIcon theme="light" />
+      <BookThemeIcon theme="dark" />
     </button>
   );
 }

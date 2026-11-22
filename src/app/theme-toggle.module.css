@@ -4,16 +4,14 @@
   flex: none;
   width: 2.75rem;
   height: 2.75rem;
-  border: 1px solid var(--ovo-line);
-  border-radius: 50%;
-  background: var(--ovo-surface);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--ovo-ink);
   cursor: pointer;
 }
-.toggle:hover { background: var(--ovo-highlight); border-color: var(--ovo-forest); }
+.toggle:hover { color: var(--ovo-forest); }
 .toggle:focus-visible { outline: 2px solid var(--ovo-forest); outline-offset: 3px; }
-.book { position: relative; display: block; }
-.sun, .moon { position: absolute; top: 5px; left: 10px; }
 .moon { display: none; }
 :global(html[data-theme="dark"]) .sun { display: none; }
 :global(html[data-theme="dark"]) .moon { display: block; }

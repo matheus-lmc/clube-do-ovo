@@ -38,10 +38,12 @@ test("alterna o tema pelo cabeçalho e mantém a escolha após navegar e recarre
   await page.goto("/");
   const toggle = page.getByRole("switch", { name: "Tema escuro" });
   await expect(toggle).toBeChecked();
-  await expect(toggle.locator('[data-theme-icon="dark"]')).toBeVisible();
+  await expect(toggle.locator('svg[data-theme-icon="dark"]')).toBeVisible();
+  await expect(toggle).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(toggle).toHaveCSS("border-top-width", "0px");
   await toggle.click();
   await expect(toggle).not.toBeChecked();
-  await expect(toggle.locator('[data-theme-icon="light"]')).toBeVisible();
+  await expect(toggle.locator('svg[data-theme-icon="light"]')).toBeVisible();
   await expect(page.locator("html")).toHaveCSS("color-scheme", "light");
   await page.getByRole("link", { name: "Entrar", exact: true }).click();
   await expect(page).toHaveURL(/\/entrar$/);
