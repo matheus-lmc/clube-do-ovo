@@ -86,16 +86,17 @@ export function chapterShortcuts(contents: unknown, max: number) {
   }).sort((first, second) => first.page - second.page);
 }
 
-export function layoutChapterShortcuts(
-  pages: number[], total: number, width: number, cardWidth: number, gap: number, inset: number,
-) {
-  const laneEnds: number[] = [];
-  return pages.map((page) => {
-    const marker = inset + (width - 2 * inset) * page / total;
+export function layoutChapterShortcuts(pages: number[], total: number, width: number, cardWidth: number, active: number) {
+  const inset = 10.4;
+  const cards: { index: number; left: number }[] = [];
+  const candidates = pages.map((_, index) => index);
+  candidates.sort((a, b) => Math.abs(a - active) - Math.abs(b - active));
+  for (const index of candidates) {
+    const marker = inset + (width - 2 * inset) * pages[index] / total;
     const left = Math.max(0, Math.min(marker - cardWidth / 2, width - cardWidth));
-    const available = laneEnds.findIndex((end) => end + gap <= left);
-    const lane = available < 0 ? laneEnds.length : available;
-    laneEnds[lane] = left + cardWidth;
-    return { marker, left, lane };
-  });
+    if (cards.some((card) => Math.abs(card.left - left) < cardWidth + 8)) continue;
+    cards.push({ index, left });
+    if (cards.length === 3) break;
+  }
+  return cards.sort((first, second) => first.index - second.index);
 }

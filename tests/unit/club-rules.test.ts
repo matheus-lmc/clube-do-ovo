@@ -50,12 +50,11 @@ it("usa apenas páginas de início informadas no sumário e dentro da edição",
   ], 100)).toEqual([{ title: "Primeiro capítulo", page: 7 }, { title: "Capítulo 2", page: 23 }]);
 });
 
-it("mantém os marcadores proporcionais e distribui atalhos próximos em linhas distintas", async () => {
+it("prioriza o capítulo atual sem empilhar cards quando o sumário é denso", async () => {
   const { layoutChapterShortcuts } = await import("@/lib/club-rules");
-  const layout = layoutChapterShortcuts([0, 5, 100], 100, 320, 80, 8, 10);
-  expect(layout).toEqual([
-    { marker: 10, left: 0, lane: 0 },
-    { marker: 25, left: 0, lane: 1 },
-    { marker: 310, left: 240, lane: 0 },
-  ]);
+  const pages = Array.from({ length: 100 }, (_, index) => index + 1);
+  const cards = layoutChapterShortcuts(pages, 100, 320, 80, 49);
+  expect(cards.some(({ index }) => index === 49)).toBe(true);
+  expect(cards.length).toBeLessThanOrEqual(3);
+  expect(cards.every(({ left }, index) => index === 0 || left >= cards[index - 1].left + 88)).toBe(true);
 });

@@ -1,27 +1,26 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type CSSProperties } from "react";
-import { Check } from "lucide-react";
+import { Suspense, use, useActionState, useEffect, useRef, useState, type CSSProperties } from "react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { layoutChapterShortcuts } from "@/lib/club-rules";
 import { saveProgress } from "../actions";
 import styles from "../clubs.module.css";
 
 type Member = { id: string; name: string; progress: number | null; self: boolean };
 
-export function ReadingProgress({ clubId, revision, total, byChapter, titles, shortcuts, members }: {
-  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; shortcuts: { title: string; page: number }[]; members: Member[];
+type Shortcut = { title: string; page: number };
+
+function ChapterTimeline({ source, page, total, onSelect }: {
+  source: Promise<Shortcut[]>; page: number; total: number; onSelect: (page: string) => void;
 }) {
-  const current = members.find((member) => member.self)?.progress;
-  const [position, setPosition] = useState(String(current ?? 0));
-  const [state, submit, pending] = useActionState(saveProgress.bind(null, clubId), {});
-  const [edited, setEdited] = useState(false);
+  const shortcuts = use(source);
   const rail = useRef<HTMLDivElement>(null);
   const [railWidth, setRailWidth] = useState(0);
-  const cardWidth = Math.min(112, railWidth);
-  const cards = railWidth
-    ? layoutChapterShortcuts(shortcuts.map(({ page }) => page), total, railWidth, cardWidth, 8, 10.4)
-    : [];
-  const lanes = cards.reduce((count, { lane }) => Math.max(count, lane + 1), 0);
+  const active = shortcuts.findLastIndex((shortcut) => shortcut.page <= page);
+  const cardWidth = Math.min(108, railWidth);
+  const cards = railWidth ? layoutChapterShortcuts(shortcuts.map((shortcut) => shortcut.page),
+    total, railWidth, cardWidth, Math.max(0, active)) : [];
+  const previous = active >= 0 && page === shortcuts[active].page ? active - 1 : active;
 
   useEffect(() => {
     const element = rail.current;
@@ -29,7 +28,49 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, sh
     const observer = new ResizeObserver(([entry]) => setRailWidth(entry.contentRect.width));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [shortcuts.length]);
+  }, []);
+
+  if (!shortcuts.length) return null;
+
+  return (
+    <div role="group" aria-label="Início dos capítulos" className={styles.chapterTimeline}>
+      <div className={styles.chapterAxis} aria-hidden="true">
+        {shortcuts.map(({ page }, index) => (
+          <span key={index} className={styles.chapterMarker} data-current={index === active}
+            style={{ left: `${page / total * 100}%` }} />
+        ))}
+      </div>
+      <div ref={rail} className={styles.chapterRail}>
+        {cards.map(({ index, left }) => {
+          const { title, page } = shortcuts[index];
+          return (
+            <button key={index} type="button" className={styles.chapterCard} title={title}
+              style={{ left, width: cardWidth }} aria-current={index === active ? "true" : undefined}
+              onClick={() => onSelect(String(page))}>
+              <strong>{title}</strong>
+              <span>Pág. {page}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className={styles.chapterNavigation}>
+        <button type="button" className={styles.chapterStep} aria-label="Capítulo anterior" disabled={previous < 0}
+          onClick={() => onSelect(String(shortcuts[previous].page))}><ArrowLeft size={17} aria-hidden /></button>
+        <button type="button" className={styles.chapterStep} aria-label="Próximo capítulo" disabled={active + 1 >= shortcuts.length}
+          onClick={() => onSelect(String(shortcuts[active + 1].page))}><ArrowRight size={17} aria-hidden /></button>
+        <span>{active < 0 ? "Antes do primeiro capítulo" : `Capítulo ${active + 1} de ${shortcuts.length}`}</span>
+      </div>
+    </div>
+  );
+}
+
+export function ReadingProgress({ clubId, revision, total, byChapter, titles, shortcuts, members }: {
+  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; shortcuts: Promise<Shortcut[]> | null; members: Member[];
+}) {
+  const current = members.find((member) => member.self)?.progress;
+  const [position, setPosition] = useState(String(current ?? 0));
+  const [state, submit, pending] = useActionState(saveProgress.bind(null, clubId), {});
+  const [edited, setEdited] = useState(false);
   const sliderValue = Math.min(total, Math.max(0, Number(position) || 0));
   const label = byChapter ? "Último capítulo concluído" : "Página atual";
   const chapterPosition = sliderValue === 0 ? "Ainda não comecei" :
@@ -53,27 +94,14 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, sh
                 aria-label={`${label}, barra editável`} aria-valuetext={byChapter ? `${chapterPosition}, ${sliderValue} de ${total} capítulos` : `${sliderValue} de ${total} páginas`}
                 onChange={(event) => edit(event.target.value)}
                 style={{ "--fill": `${sliderValue / total * 100}%` } as CSSProperties} />
-              {shortcuts.length > 0 && (
-                <div ref={rail} className={styles.chapterRail} role="group" aria-label="Início dos capítulos"
-                  style={{ "--lanes": lanes, "--card-width": `${cardWidth}px` } as CSSProperties}>
-                  {cards.map(({ marker, lane }, index) => (
-                    <span key={index} aria-hidden="true" className={styles.chapterMarker}
-                      style={{ "--marker": `${marker}px`, "--lane": lane } as CSSProperties} />
-                  ))}
-                  {cards.map(({ left, lane }, index) => {
-                    const { title, page } = shortcuts[index];
-                    return (
-                      <button key={index} type="button" className={styles.chapterCard} title={title}
-                        style={{ "--card-left": `${left}px`, "--lane": lane } as CSSProperties}
-                        aria-pressed={sliderValue === page} onClick={() => edit(String(page))}>
-                        <strong>{title}</strong>
-                        <span>Pág. {page}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {shortcuts && (
+                <Suspense fallback={<div className={styles.chapterTimelinePlaceholder} aria-hidden="true" />}>
+                  <ChapterTimeline source={shortcuts} page={sliderValue} total={total} onSelect={edit} />
+                </Suspense>
               )}
             </div>
+          </div>
+          <div className={styles.progressFooter}>
             {byChapter ? (
               <>
                 <input type="hidden" name="progress" value={sliderValue} />
@@ -86,10 +114,10 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, sh
                 value={position} onChange={(event) => edit(event.target.value)} aria-describedby="reading-total" />
               <span id="reading-total">de {total} páginas</span>
             </div>}
+            <button type="submit" className={styles.primary} disabled={pending}>
+              {pending ? "Salvando…" : "Salvar progresso"}
+            </button>
           </div>
-          <button type="submit" className={styles.primary} disabled={pending}>
-            {pending ? "Salvando…" : "Salvar progresso"}
-          </button>
           {!edited && state.error && <p className={styles.error} role="alert">{state.error}</p>}
           <p role="status" className={styles.feedback}>
             {!edited && state.saved && !pending && (

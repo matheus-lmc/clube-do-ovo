@@ -27,7 +27,7 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
   const current = club.members.find(({ userId }) => userId === user.id);
   if (!current) notFound();
   const total = club.chapterTotal ?? club.bookPages;
-  const shortcuts = club.chapterTotal === null && total ? await getChapterShortcuts(club.bookIsbn, total) : [];
+  const shortcuts = club.chapterTotal === null && total && club.bookIsbn ? getChapterShortcuts(club.bookIsbn, total) : null;
   const readingMonth = club.readingStartedAt && new Intl.DateTimeFormat("pt-BR", {
     month: "long", year: "numeric", timeZone: "America/Sao_Paulo",
   }).format(club.readingStartedAt);
