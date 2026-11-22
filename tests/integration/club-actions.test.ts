@@ -34,12 +34,13 @@ beforeEach(() => {
 });
 
 test("cria clube e associação do líder na mesma operação, com dados canônicos da edição", async () => {
+  vi.mocked(getBookEdition).mockResolvedValue({ book: edition, chapters: 2, titles: ["Início", "Fim"] });
   await expect(createClub({}, form({
     requestId: clubId, name: " Entre Páginas ", volume: edition.id, chapters: "12", pages: "3",
   }))).rejects.toThrow("NEXT_REDIRECT");
 
   expect(db.club.create).toHaveBeenCalledWith({ data: expect.objectContaining({
-    id: clubId, name: "Entre Páginas", leaderId: reader.id, bookPages: 264, chapterTotal: 12,
+    id: clubId, name: "Entre Páginas", leaderId: reader.id, bookPages: 264, chapterTotal: 2, chapterTitles: ["Início", "Fim"], chapterSource: "open-library",
     inviteCode: expect.stringMatching(/^[A-Z0-9]{6}$/), bookIsbn: edition.isbn,
     members: { create: { userId: reader.id, displayName: reader.name } },
   }) });
@@ -51,8 +52,9 @@ test("exige um total válido quando o catálogo omite a contagem de páginas", a
   const create = (fields: Record<string, string>) => createClub({}, form({ requestId: clubId, name: "Clube", volume: edition.id, ...fields }));
   await expect(create({})).resolves.toHaveProperty("error");
   expect(db.club.create).not.toHaveBeenCalled();
-  await expect(create({ chapters: "5" })).rejects.toThrow("NEXT_REDIRECT");
-  expect(db.club.create).toHaveBeenCalledWith({ data: expect.objectContaining({ bookPages: null, chapterTotal: 5 }) });
+  await expect(create({ chapters: "5", chapterTitles: "Entrada manual" })).resolves.toHaveProperty("error");
+  await expect(create({ pages: "200" })).rejects.toThrow("NEXT_REDIRECT");
+  expect(db.club.create).toHaveBeenCalledWith({ data: expect.objectContaining({ bookPages: 200, chapterTotal: null }) });
 });
 
 test("a prévia exige sessão e código e mostra somente dados do convite", async () => {

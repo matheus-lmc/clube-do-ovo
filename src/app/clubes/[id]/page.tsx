@@ -62,7 +62,7 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
         </div>
         {leads && (
           <div className={styles.readingActions}>
-            <ReadingEditor key={id} reading={{ clubId: id, revision: club.readingRevision, book, chapters: club.chapterTotal, titles: club.chapterTitles, chapterSource: club.chapterSource }} />
+            <ReadingEditor key={id} reading={{ clubId: id, revision: club.readingRevision, book, chapters: club.chapterTotal }} />
           </div>
         )}
       </section>

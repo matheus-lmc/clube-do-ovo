@@ -15,7 +15,9 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, me
   const [state, submit, pending] = useActionState(saveProgress.bind(null, clubId), {});
   const [edited, setEdited] = useState(false);
   const sliderValue = Math.min(total, Math.max(0, Number(position) || 0));
-  const label = byChapter ? "Capítulos concluídos" : "Página atual";
+  const label = byChapter ? "Último capítulo concluído" : "Página atual";
+  const chapterPosition = sliderValue === 0 ? "Ainda não comecei" :
+    titles[sliderValue - 1] ?? `Capítulo ${sliderValue}`;
 
   function edit(value: string) {
     setPosition(value);
@@ -29,20 +31,22 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, me
         <form action={submit} onSubmit={() => setEdited(false)} className={styles.progressForm}>
           <input type="hidden" name="revision" value={revision} />
           <div className={styles.field}>
-            <label htmlFor="reading-position">{label}</label>
+            <label htmlFor={byChapter ? "reading-slider" : "reading-position"}>{label}</label>
             <input id="reading-slider" type="range" min={0} max={total} step={1} value={sliderValue}
-              aria-label={`${label}, barra editável`} aria-valuetext={`${sliderValue} de ${total}`}
+              aria-label={`${label}, barra editável`} aria-valuetext={byChapter ? `${chapterPosition}, ${sliderValue} de ${total} capítulos` : `${sliderValue} de ${total} páginas`}
               onChange={(event) => edit(event.target.value)}
               style={{ "--fill": `${sliderValue / total * 100}%` } as CSSProperties} />
-            {byChapter && titles.length > 0 ? (
-              <select id="reading-position" name="progress" value={position} onChange={(event) => edit(event.target.value)}>
-                <option value="0">Ainda não comecei</option>
-                {titles.map((title, index) => <option key={index} value={index + 1}>{index + 1}. {title}</option>)}
-              </select>
+            {byChapter ? (
+              <>
+                <input type="hidden" name="progress" value={sliderValue} />
+                <output htmlFor="reading-slider">
+                  <strong>{chapterPosition}</strong> · {sliderValue} de {total} capítulos
+                </output>
+              </>
             ) : <div className={styles.position}>
               <input id="reading-position" name="progress" type="number" required min={0} max={total} step={1} inputMode="numeric"
                 value={position} onChange={(event) => edit(event.target.value)} aria-describedby="reading-total" />
-              <span id="reading-total">de {total} {byChapter ? "capítulos" : "páginas"}</span>
+              <span id="reading-total">de {total} páginas</span>
             </div>}
           </div>
           <button type="submit" className={styles.primary} disabled={pending}>

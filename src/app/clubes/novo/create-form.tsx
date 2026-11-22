@@ -3,7 +3,6 @@
 import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowRight, Search } from "lucide-react";
 import type { BookEdition } from "@/lib/book-editions";
-import { parseChapterTitles } from "@/lib/club-rules";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClub, saveReading } from "../actions";
 import { Cover } from "../cover";
@@ -15,7 +14,7 @@ function editionDescription(book: BookEdition) {
   return [book.publisher, book.year, book.pages && `${book.pages} pág.`].filter(Boolean).join(" · ");
 }
 
-export type ReadingEdit = { clubId: string; revision: number; book: BookEdition | null; chapters: number | null; titles: string[]; chapterSource: string | null };
+export type ReadingEdit = { clubId: string; revision: number; book: BookEdition | null; chapters: number | null };
 
 export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   requestId?: string; reading?: ReadingEdit; onCancel?: () => void; onSaved?: () => void;
@@ -31,11 +30,8 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   const [selected, setSelected] = useState<BookEdition | null>(reading?.book ?? null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [chapters, setChapters] = useState(String(reading?.chapters ?? ""));
-  const [titles, setTitles] = useState(reading?.titles.join("\n") ?? "");
-  const [chapterSource, setChapterSource] = useState(reading?.chapterSource ?? "");
   const [pages, setPages] = useState(String(reading?.book?.pages ?? ""));
-  const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; titles?: string[]; failed?: boolean }>({ pending: false });
+  const [suggestion, setSuggestion] = useState<{ pending: boolean; count?: number; failed?: boolean; checked?: boolean }>({ pending: false });
   const detailsRequest = useRef<AbortController | null>(null);
   const term = query.trim();
   const items = results.query === term ? results.items ?? [] : [];
@@ -79,9 +75,6 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
     if (selected?.id !== book.id) {
       const initial = reading?.book?.id === book.id ? reading : undefined;
       setPages(String(initial?.book?.pages ?? ""));
-      setChapters(String(initial?.chapters ?? ""));
-      setTitles(initial?.titles.join("\n") ?? "");
-      setChapterSource(initial?.chapterSource ?? "");
     }
     setSuggestion({ pending: true });
     const request = new AbortController();
@@ -95,7 +88,7 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
       const details: { book: BookEdition; chapters: number | null; titles: string[] } = await response.json();
       if (request.signal.aborted) return;
       setSelected(details.book);
-      setSuggestion({ pending: false, count: details.chapters ?? undefined, titles: details.titles });
+      setSuggestion({ pending: false, count: details.chapters ?? undefined, checked: true });
     } catch {
       if (!request.signal.aborted) setSuggestion({ pending: false, failed: true });
     }
@@ -122,16 +115,15 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   }
 
   const sameEdition = reading?.book?.id === selected?.id;
-  const parsedTitles = parseChapterTitles(titles);
-  const chapterTotal = parsedTitles?.length || Number(chapters) || null;
+  const chapterTotal = (sameEdition ? reading?.chapters : null) ?? suggestion.count ?? null;
   const resetsProgress = Boolean(reading?.book && selected &&
-    (!sameEdition || chapterTotal !== reading.chapters ||
-      (reading.titles.length > 0 && JSON.stringify(parsedTitles) !== JSON.stringify(reading.titles))));
+    (!sameEdition || chapterTotal !== reading.chapters));
 
   return (
     <form action={action} className={reading ? styles.editorForm : styles.form} aria-busy={pending}>
       {reading ? <input type="hidden" name="revision" value={reading.revision} /> :
         <input type="hidden" name="requestId" value={requestId} />}
+      {suggestion.checked && <input type="hidden" name="detectChapters" value="yes" />}
       <input type="hidden" name="volume" value={selected?.id ?? ""} />
       {!reading && <div className={styles.field}>
         <label htmlFor="club-name">Nome do clube</label>
@@ -189,38 +181,18 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
       </div>
       {selected && (
         <>
-          <div className={styles.field}>
-            <label htmlFor="chapter-total">Total de capítulos <span>(opcional)</span></label>
-            <input id="chapter-total" name="chapters" type="number" min={1} max={1000} step={1}
-              value={parsedTitles?.length || chapters} disabled={Boolean(parsedTitles?.length)} onChange={(event) => setChapters(event.target.value)} aria-describedby="chapter-help" />
-            <p id="chapter-help">Deixe em branco para acompanhar a leitura por páginas.</p>
-            <label htmlFor="chapter-titles">Títulos dos capítulos <span>(opcional)</span></label>
-            <input type="hidden" name="chapterSource" value={chapterSource} />
-            <textarea id="chapter-titles" name="chapterTitles" rows={5} value={titles}
-              onChange={(event) => setTitles(event.target.value)} aria-describedby="chapter-titles-help" />
-            <p id="chapter-titles-help">Informe um título por linha, na ordem da edição.</p>
-            {suggestion.pending && <Skeleton label="Consultando o sumário…" />}
+          {suggestion.pending ? <Skeleton label="Consultando o sumário…" /> : (
             <p role="status" className={styles.searchStatus}>
-              {suggestion.failed && "Os detalhes da edição estão indisponíveis. Você ainda pode informar os capítulos."}
+              {chapterTotal ? (
+                sameEdition && reading?.chapters
+                  ? `Acompanhamento por capítulos · ${chapterTotal} no total`
+                  : `${chapterTotal} ${chapterTotal === 1 ? "capítulo encontrado" : "capítulos encontrados"} automaticamente na Open Library.`
+              ) : suggestion.failed
+                ? "Não foi possível consultar o sumário. O progresso será por páginas."
+                : "O catálogo não encontrou capítulos para esta edição. O progresso será por páginas."}
             </p>
-            {suggestion.failed && (
-              <button className={styles.button} type="button" onClick={() => void choose(selected)}>
-                Consultar edição novamente
-              </button>
-            )}
-            {suggestion.count && (
-              <button className={styles.button} type="button" onClick={() => {
-                setChapters(String(suggestion.count));
-                if (suggestion.titles?.length) {
-                  setTitles(suggestion.titles.join("\n"));
-                  setChapterSource("open-library");
-                }
-              }}>
-                Usar sugestão de {suggestion.count} {suggestion.count === 1 ? "capítulo" : "capítulos"}{suggestion.titles?.length ? " da Open Library" : ""}
-              </button>
-            )}
-          </div>
-          {(!selected.pages || sameEdition) && (
+          )}
+          {(!selected.pages || sameEdition) && !chapterTotal && (
             <div className={styles.field}>
               <label htmlFor="page-total">Total de páginas da edição</label>
               <input id="page-total" name="pages" type="number" min={1} max={100000} step={1}

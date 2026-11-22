@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { getBookEdition } from "@/lib/book-editions";
-import { inviteCode, parseChapterTitles, progressValue } from "@/lib/club-rules";
+import { inviteCode, progressValue } from "@/lib/club-rules";
 import { requireClubUser } from "@/lib/club-session";
 import { getPrisma } from "@/lib/prisma";
 
@@ -22,18 +22,13 @@ export async function createClub(_state: ActionState, form: FormData): Promise<A
   if (typeof volume !== "string" || !/^[\w-]{1,64}$/.test(volume)) return { error: "Selecione uma edição na lista de sugestões." };
   if (typeof id !== "string" || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)) return { error: "Reabra o formulário e tente novamente." };
 
-  const rawChapters = form.get("chapters");
-  const chapterTitles = parseChapterTitles(form.get("chapterTitles"));
-  if (!chapterTitles) return { error: "Informe até 1.000 títulos de até 300 caracteres." };
-  const chapterTotal = chapterTitles.length || progressValue(rawChapters, 1000);
-  if (rawChapters && !chapterTotal) return { error: "Informe um total de 1 a 1.000 capítulos." };
-
-  let book;
+  let edition;
   try {
-    ({ book } = await getBookEdition(volume));
+    edition = await getBookEdition(volume);
   } catch {
     return { error: "Não foi possível confirmar a edição. Tente novamente." };
   }
+  const { book, chapters: chapterTotal, titles: chapterTitles } = edition;
   const rawPages = form.get("pages");
   const bookPages = book.pages ?? progressValue(rawPages, 100_000);
   if (!bookPages && (!chapterTotal || rawPages)) return { error: "Informe um total válido de páginas ou capítulos." };
@@ -48,7 +43,7 @@ export async function createClub(_state: ActionState, form: FormData): Promise<A
         id, name, leaderId: user.id, inviteCode: code, bookVolumeId: book.id,
         readingStartedAt: new Date(), bookTitle: book.title, bookAuthors: book.authors, bookPublisher: book.publisher,
         bookYear: book.year, bookIsbn: book.isbn, bookCover: book.cover,
-        bookPages: bookPages || null, chapterTotal, ...(chapterTitles.length ? { chapterTitles, chapterSource: form.get("chapterSource") === "open-library" ? "open-library" : null } : {}),
+        bookPages: bookPages || null, chapterTotal, ...(chapterTitles.length ? { chapterTitles, chapterSource: "open-library" } : {}),
         members: { create: { userId: user.id, displayName: user.name } },
       } });
       created = true;
@@ -207,27 +202,27 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
     const volume = form.get("volume");
     const replacing = !remove && volume !== current.bookVolumeId;
     let pages = remove ? null : current.bookPages;
-    let chapters = null;
-    let chapterTitles: string[] = [];
+    let chapters = remove || replacing ? null : current.chapterTotal;
+    let chapterTitles = remove || replacing ? [] : current.chapterTitles ?? [];
     let edition: Prisma.ClubUpdateInput = {};
     if (!remove) {
       if (typeof volume !== "string" || !/^[\w-]{1,64}$/.test(volume)) {
         return { error: "Selecione uma edição na lista de sugestões." };
       }
-      const rawChapters = form.get("chapters");
-      const titles = parseChapterTitles(form.get("chapterTitles"));
-      if (!titles) return { error: "Informe até 1.000 títulos de até 300 caracteres." };
-      chapterTitles = titles;
-      chapters = titles.length || progressValue(rawChapters, 1000);
-      if (rawChapters && !chapters) return { error: "Informe um total de 1 a 1.000 capítulos." };
-
       const rawPages = form.get("pages");
       const pageChange = rawPages !== null && rawPages !== String(current.bookPages ?? "");
-      if (replacing || pageChange) {
-        const { book } = await getBookEdition(volume);
-        if (!replacing && book.pages) return { error: "Esta edição já tem um total de páginas no catálogo." };
-        pages = book.pages ?? progressValue(rawPages, 100_000);
-        if (!pages && rawPages) return { error: "Informe um total válido de páginas." };
+      const detectChapters = chapters === null && form.get("detectChapters") === "yes";
+      if (replacing || pageChange || detectChapters) {
+        const { book, chapters: detected, titles } = await getBookEdition(volume);
+        if (replacing || detectChapters) {
+          chapters = detected;
+          chapterTitles = titles;
+        }
+        if (replacing || pageChange) {
+          if (!replacing && book.pages) return { error: "Esta edição já tem um total de páginas no catálogo." };
+          pages = book.pages ?? progressValue(rawPages, 100_000);
+          if (!pages && rawPages) return { error: "Informe um total válido de páginas." };
+        }
         if (replacing) edition = {
           bookVolumeId: book.id, bookTitle: book.title, bookAuthors: book.authors,
           bookPublisher: book.publisher, bookYear: book.year, bookIsbn: book.isbn, bookCover: book.cover,
@@ -241,7 +236,7 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
     }
 
     const previousTitles = current.chapterTitles ?? [];
-    const chapterSource = chapterTitles.length && form.get("chapterSource") === "open-library" ? "open-library" : null;
+    const chapterSource = chapterTitles.length ? "open-library" : null;
     const titlesChanged = JSON.stringify(previousTitles) !== JSON.stringify(chapterTitles);
     const reset = remove || replacing || chapters !== current.chapterTotal ||
       (previousTitles.length > 0 && titlesChanged);

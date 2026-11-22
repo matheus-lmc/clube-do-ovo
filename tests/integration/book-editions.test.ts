@@ -77,7 +77,7 @@ test("queries providers together and only uses chapters from the same edition", 
     expect.stringContaining("googleapis"), "https://openlibrary.org/isbn/6580309318.json",
   ]);
   resolveGoogle(Response.json(volume));
-  await expect(result).resolves.toMatchObject({ book: { isbn }, chapters: 2 });
+  await expect(result).resolves.toMatchObject({ book: { isbn }, chapters: 2, titles: ["Capítulo 1", "Capítulo 2"] });
 });
 
 test("degrades to pages for unavailable or mismatched chapter information", async () => {

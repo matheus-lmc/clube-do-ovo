@@ -78,8 +78,10 @@ async function openLibraryChapters(isbn: string): Promise<string[] | null> {
 }
 
 export async function getBookEdition(id: string, isbn: string | null = null) {
-  const [volume, chapters] = await Promise.all([getVolume(id), isbn ? openLibraryChapters(isbn) : null]);
+  const [volume, lookup] = await Promise.all([getVolume(id), isbn ? openLibraryChapters(isbn) : null]);
   const book = toBookEdition(volume);
-  const titles = book.isbn && isbn && canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? chapters ?? [] : [];
+  const titles = !book.isbn ? [] : isbn
+    ? canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? lookup ?? [] : []
+    : await openLibraryChapters(book.isbn) ?? [];
   return { book, chapters: titles.length || null, titles };
 }

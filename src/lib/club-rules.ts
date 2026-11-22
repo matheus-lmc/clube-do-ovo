@@ -65,8 +65,11 @@ export function contentsTitles(contents: unknown): string[] {
   if (!Array.isArray(contents)) return [];
   const titles = contents.flatMap((entry: unknown) => {
     if (!entry || typeof entry !== "object") return [];
-    const title: unknown = Reflect.get(entry, "title");
-    return typeof title === "string" ? [title.replace(/\s+/g, " ").trim()] : [];
+    const title = ["title", "label"].map((key) => Reflect.get(entry, key))
+      .find((value): value is string => typeof value === "string" && Boolean(value.trim()));
+    const clean = title?.replace(/\s+/g, " ").trim();
+    if (!clean || /^(pref[áa]cio|sum[áa]rio|[íi]ndice|ap[êe]ndice|bibliografia|agradecimentos|preface|appendix|acknowledgments)(?:$|[\s:])/iu.test(clean)) return [];
+    return [clean];
   });
   return parseChapterTitles(titles.join("\n")) ?? [];
 }
