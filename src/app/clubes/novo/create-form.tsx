@@ -85,10 +85,10 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
     try {
       const response = await fetch(`/api/livros?${params}`, { signal: request.signal });
       if (!response.ok) throw new Error();
-      const details: { book: BookEdition; chapters: number | null; titles: string[] } = await response.json();
+      const details: { book: BookEdition; shortcuts: { title: string; page: number }[] } = await response.json();
       if (request.signal.aborted) return;
       setSelected(details.book);
-      setSuggestion({ pending: false, count: details.chapters ?? undefined, checked: true });
+      setSuggestion({ pending: false, count: details.shortcuts.length, checked: true });
     } catch {
       if (!request.signal.aborted) setSuggestion({ pending: false, failed: true });
     }
@@ -115,15 +115,13 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
   }
 
   const sameEdition = reading?.book?.id === selected?.id;
-  const chapterTotal = (sameEdition ? reading?.chapters : null) ?? suggestion.count ?? null;
   const resetsProgress = Boolean(reading?.book && selected &&
-    (!sameEdition || chapterTotal !== reading.chapters));
+    (!sameEdition || reading.chapters !== null));
 
   return (
     <form action={action} className={reading ? styles.editorForm : styles.form} aria-busy={pending}>
       {reading ? <input type="hidden" name="revision" value={reading.revision} /> :
         <input type="hidden" name="requestId" value={requestId} />}
-      {suggestion.checked && <input type="hidden" name="detectChapters" value="yes" />}
       <input type="hidden" name="volume" value={selected?.id ?? ""} />
       {!reading && <div className={styles.field}>
         <label htmlFor="club-name">Nome do clube</label>
@@ -183,26 +181,24 @@ export function CreateClubForm({ requestId, reading, onCancel, onSaved }: {
         <>
           {suggestion.pending ? <Skeleton label="Consultando o sumário…" /> : (
             <p role="status" className={styles.searchStatus}>
-              {chapterTotal ? (
-                sameEdition && reading?.chapters
-                  ? `Acompanhamento por capítulos · ${chapterTotal} no total`
-                  : `${chapterTotal} ${chapterTotal === 1 ? "capítulo encontrado" : "capítulos encontrados"} automaticamente na Open Library.`
-              ) : suggestion.failed
-                ? "Não foi possível consultar o sumário. O progresso será por páginas."
-                : "O catálogo não encontrou capítulos para esta edição. O progresso será por páginas."}
+              {suggestion.count
+                ? `${suggestion.count} ${suggestion.count === 1 ? "atalho de capítulo encontrado" : "atalhos de capítulos encontrados"} no catálogo.`
+                : suggestion.failed
+                  ? "O sumário está indisponível. Você pode acompanhar a leitura por páginas."
+                  : suggestion.checked && "O catálogo não informou as páginas de início dos capítulos desta edição."}
             </p>
           )}
-          {(!selected.pages || sameEdition) && !chapterTotal && (
+          {(!selected.pages || sameEdition) && (
             <div className={styles.field}>
               <label htmlFor="page-total">Total de páginas da edição</label>
               <input id="page-total" name="pages" type="number" min={1} max={100000} step={1}
-                required={!chapterTotal && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
+                required={!selected.pages && !suggestion.pending} value={pages} onChange={(event) => setPages(event.target.value)} />
               <p>{sameEdition ? "O total do catálogo tem prioridade." : "O catálogo não informou o total de páginas."}</p>
             </div>
           )}
         </>
       )}
-      {resetsProgress && <label className={styles.readingWarning}><input type="checkbox" name="confirm" value="yes" required /> Confirmo que o progresso dos membros será apagado.</label>}
+      {resetsProgress && <label className={styles.readingWarning}><input type="checkbox" name="confirm" value="yes" required /> {sameEdition ? "Confirmo a mudança para páginas. O progresso salvo em capítulos será zerado." : "Confirmo que o progresso dos membros será apagado."}</label>}
       {state.error && <p className={styles.error} role="alert">{state.error}</p>}
       <div className={reading ? styles.editorActions : undefined}>
         {onCancel && <button className={styles.button} type="button" onClick={onCancel} disabled={pending}>Cancelar</button>}

@@ -37,3 +37,15 @@ it("extrai títulos do sumário e valida a lista manual", async () => {
   expect(parseChapterTitles(" O encontro \r\n\nO retorno ")).toEqual(["O encontro", "O retorno"]);
   expect(parseChapterTitles("x".repeat(301))).toBeNull();
 });
+
+it("usa apenas páginas de início informadas no sumário e dentro da edição", async () => {
+  const { chapterShortcuts } = await import("@/lib/club-rules");
+  expect(chapterShortcuts([
+    { title: "Prefácio", pagenum: "2" },
+    { title: "Primeiro capítulo", pagenum: "7" },
+    { label: "Capítulo 2", pagenum: 23 },
+    { title: "Sem página", pagenum: "" },
+    { title: "Fora da edição", pagenum: "101" },
+    { title: "Página romana", pagenum: "iv" },
+  ], 100)).toEqual([{ title: "Primeiro capítulo", page: 7 }, { title: "Capítulo 2", page: 23 }]);
+});

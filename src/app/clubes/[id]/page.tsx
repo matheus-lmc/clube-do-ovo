@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { requireClubUser } from "@/lib/club-session";
+import { getChapterShortcuts } from "@/lib/book-editions";
 import { getPrisma } from "@/lib/prisma";
 import { Cover } from "../cover";
 import { CopyInvite } from "./copy-invite";
@@ -26,6 +27,7 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
   const current = club.members.find(({ userId }) => userId === user.id);
   if (!current) notFound();
   const total = club.chapterTotal ?? club.bookPages;
+  const shortcuts = club.chapterTotal === null && total ? await getChapterShortcuts(club.bookIsbn, total) : [];
   const readingMonth = club.readingStartedAt && new Intl.DateTimeFormat("pt-BR", {
     month: "long", year: "numeric", timeZone: "America/Sao_Paulo",
   }).format(club.readingStartedAt);
@@ -67,7 +69,7 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
         )}
       </section>
       {total && (
-        <ReadingProgress key={`${id}:${club.readingRevision}`} clubId={id} revision={club.readingRevision} total={total} byChapter={club.chapterTotal !== null} titles={club.chapterTitles}
+        <ReadingProgress key={`${id}:${club.readingRevision}`} clubId={id} revision={club.readingRevision} total={total} byChapter={club.chapterTotal !== null} titles={club.chapterTitles} shortcuts={shortcuts}
           members={[current, ...club.members.filter((member) => member.userId !== user.id)].map((member) => ({
             id: member.userId, name: member.displayName, progress: member.progress, self: member.userId === user.id,
           }))} />

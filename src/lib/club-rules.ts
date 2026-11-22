@@ -61,15 +61,27 @@ export function parseChapterTitles(value: unknown): string[] | null {
   return titles.length <= 1000 && titles.every((title) => title.length <= 300) ? titles : null;
 }
 
-export function contentsTitles(contents: unknown): string[] {
+function contentsEntries(contents: unknown) {
   if (!Array.isArray(contents)) return [];
-  const titles = contents.flatMap((entry: unknown) => {
+  return contents.slice(0, 1000).flatMap((entry: unknown) => {
     if (!entry || typeof entry !== "object") return [];
     const title = ["title", "label"].map((key) => Reflect.get(entry, key))
       .find((value): value is string => typeof value === "string" && Boolean(value.trim()));
     const clean = title?.replace(/\s+/g, " ").trim();
     if (!clean || /^(pref[áa]cio|sum[áa]rio|[íi]ndice|ap[êe]ndice|bibliografia|agradecimentos|preface|appendix|acknowledgments)(?:$|[\s:])/iu.test(clean)) return [];
-    return [clean];
+    if (clean.length > 300) return [];
+    const page: unknown = Reflect.get(entry, "pagenum");
+    return [{ title: clean, page }];
   });
-  return parseChapterTitles(titles.join("\n")) ?? [];
+}
+
+export function contentsTitles(contents: unknown): string[] {
+  return contentsEntries(contents).map(({ title }) => title);
+}
+
+export function chapterShortcuts(contents: unknown, max: number) {
+  return contentsEntries(contents).flatMap(({ title, page }) => {
+    const number = progressValue(typeof page === "number" ? String(page) : page, max);
+    return number ? [{ title, page: number }] : [];
+  }).sort((first, second) => first.page - second.page);
 }

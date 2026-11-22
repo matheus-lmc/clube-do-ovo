@@ -1,6 +1,6 @@
 import "server-only";
 
-import { canonicalIsbn, contentsTitles, editionSearchQuery, isbnValue, uniqueEditions } from "@/lib/club-rules";
+import { canonicalIsbn, chapterShortcuts, contentsTitles, editionSearchQuery, isbnValue, uniqueEditions } from "@/lib/club-rules";
 import { getVolume, searchVolumes, type GoogleBooksVolume } from "@/lib/google-books";
 
 export type BookEdition = {
@@ -54,7 +54,7 @@ export async function searchBookEditions(query: string) {
   return uniqueEditions(items.map(toBookEdition)).slice(0, 8);
 }
 
-async function openLibraryChapters(isbn: string): Promise<string[] | null> {
+async function openLibraryContents(isbn: string): Promise<unknown> {
   try {
     const headers = new Headers({ Accept: "application/json" });
     const contact = process.env.OPEN_LIBRARY_CONTACT_EMAIL?.trim();
@@ -71,17 +71,23 @@ async function openLibraryChapters(isbn: string): Promise<string[] | null> {
     return identifiers.some((identifier) => {
       const value = isbnValue(identifier);
       return value && canonicalIsbn(value) === expected;
-    }) ? contentsTitles(edition.table_of_contents) : null;
+    }) ? edition.table_of_contents : null;
   } catch {
     return null;
   }
 }
 
+export async function getChapterShortcuts(isbn: string | null, total: number) {
+  const validIsbn = isbnValue(isbn);
+  return validIsbn ? chapterShortcuts(await openLibraryContents(validIsbn), total) : [];
+}
+
 export async function getBookEdition(id: string, isbn: string | null = null) {
-  const [volume, lookup] = await Promise.all([getVolume(id), isbn ? openLibraryChapters(isbn) : null]);
+  const [volume, lookup] = await Promise.all([getVolume(id), isbn ? openLibraryContents(isbn) : null]);
   const book = toBookEdition(volume);
-  const titles = !book.isbn ? [] : isbn
-    ? canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? lookup ?? [] : []
-    : await openLibraryChapters(book.isbn) ?? [];
-  return { book, chapters: titles.length || null, titles };
+  const contents = !book.isbn ? null : isbn
+    ? canonicalIsbn(book.isbn) === canonicalIsbn(isbn) ? lookup : null
+    : await openLibraryContents(book.isbn);
+  const titles = contentsTitles(contents);
+  return { book, chapters: titles.length || null, titles, shortcuts: chapterShortcuts(contents, book.pages ?? 100_000) };
 }

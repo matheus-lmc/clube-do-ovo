@@ -420,3 +420,23 @@
   .readingActions { grid-column: 1 / -1; justify-self: stretch; padding-top: 0.65rem; border-top: 1px solid var(--forest); }
   .readingActions .editorTrigger > button { width: 100%; }
 }
+
+.chapterShortcuts { border: 0; padding: 0; margin: 0; min-width: 0; }
+.chapterShortcuts legend { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; }
+.chapterCards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 0.5rem; }
+.chapterCard {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #cdbfaa;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.chapterCard span { color: var(--forest); }
+.chapterCard:hover, .chapterCard[aria-pressed="true"] { background: #f8ecc8; border-color: #6a562f; }

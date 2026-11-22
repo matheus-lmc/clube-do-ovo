@@ -7,8 +7,8 @@ import styles from "../clubs.module.css";
 
 type Member = { id: string; name: string; progress: number | null; self: boolean };
 
-export function ReadingProgress({ clubId, revision, total, byChapter, titles, members }: {
-  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; members: Member[];
+export function ReadingProgress({ clubId, revision, total, byChapter, titles, shortcuts, members }: {
+  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; shortcuts: { title: string; page: number }[]; members: Member[];
 }) {
   const current = members.find((member) => member.self)?.progress;
   const [position, setPosition] = useState(String(current ?? 0));
@@ -49,6 +49,20 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, me
               <span id="reading-total">de {total} páginas</span>
             </div>}
           </div>
+          {shortcuts.length > 0 && (
+            <fieldset className={styles.chapterShortcuts}>
+              <legend>Início dos capítulos</legend>
+              <div className={styles.chapterCards}>
+                {shortcuts.map(({ title, page }, index) => (
+                  <button key={index} type="button" className={styles.chapterCard}
+                    aria-pressed={sliderValue === page} onClick={() => edit(String(page))}>
+                    <strong>{title}</strong>
+                    <span>Pág. {page}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <button type="submit" className={styles.primary} disabled={pending}>
             {pending ? "Salvando…" : "Salvar progresso"}
           </button>

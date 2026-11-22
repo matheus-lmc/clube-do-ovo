@@ -51,7 +51,7 @@ test("mostra skeleton durante a busca e permite escolher um resultado pelo tecla
     const params = new URL(route.request().url()).searchParams;
     if (params.has("volume")) {
       await details;
-      await route.fulfill({ json: { book: edition, chapters: 2, titles: ["Início", "Fim"] } });
+      await route.fulfill({ json: { book: edition, shortcuts: [{ title: "Início", page: 7 }, { title: "Fim", page: 23 }] } });
     } else {
       await search;
       await route.fulfill({ json: [edition] });
@@ -74,7 +74,7 @@ test("mostra skeleton durante a busca e permite escolher um resultado pelo tecla
     await input.press("Enter");
     await expect(page.getByRole("status").filter({ hasText: "Consultando o sumário" })).toBeAttached();
     releaseDetails();
-    await expect(page.getByRole("status").filter({ hasText: "2 capítulos encontrados automaticamente" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "2 atalhos de capítulos encontrados" })).toBeVisible();
     await expect(page.getByLabel("Total de capítulos")).toHaveCount(0);
     await expect(page.locator("[data-skeleton-row]")).toHaveCount(0);
   } finally {

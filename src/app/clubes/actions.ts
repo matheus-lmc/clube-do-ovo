@@ -28,10 +28,10 @@ export async function createClub(_state: ActionState, form: FormData): Promise<A
   } catch {
     return { error: "Não foi possível confirmar a edição. Tente novamente." };
   }
-  const { book, chapters: chapterTotal, titles: chapterTitles } = edition;
+  const { book } = edition;
   const rawPages = form.get("pages");
   const bookPages = book.pages ?? progressValue(rawPages, 100_000);
-  if (!bookPages && (!chapterTotal || rawPages)) return { error: "Informe um total válido de páginas ou capítulos." };
+  if (!bookPages) return { error: "Informe um total válido de páginas." };
 
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const db = getPrisma();
@@ -43,7 +43,7 @@ export async function createClub(_state: ActionState, form: FormData): Promise<A
         id, name, leaderId: user.id, inviteCode: code, bookVolumeId: book.id,
         readingStartedAt: new Date(), bookTitle: book.title, bookAuthors: book.authors, bookPublisher: book.publisher,
         bookYear: book.year, bookIsbn: book.isbn, bookCover: book.cover,
-        bookPages: bookPages || null, chapterTotal, ...(chapterTitles.length ? { chapterTitles, chapterSource: "open-library" } : {}),
+        bookPages, chapterTotal: null,
         members: { create: { userId: user.id, displayName: user.name } },
       } });
       created = true;
@@ -202,8 +202,6 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
     const volume = form.get("volume");
     const replacing = !remove && volume !== current.bookVolumeId;
     let pages = remove ? null : current.bookPages;
-    let chapters = remove || replacing ? null : current.chapterTotal;
-    let chapterTitles = remove || replacing ? [] : current.chapterTitles ?? [];
     let edition: Prisma.ClubUpdateInput = {};
     if (!remove) {
       if (typeof volume !== "string" || !/^[\w-]{1,64}$/.test(volume)) {
@@ -211,35 +209,24 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
       }
       const rawPages = form.get("pages");
       const pageChange = rawPages !== null && rawPages !== String(current.bookPages ?? "");
-      const detectChapters = chapters === null && form.get("detectChapters") === "yes";
-      if (replacing || pageChange || detectChapters) {
-        const { book, chapters: detected, titles } = await getBookEdition(volume);
-        if (replacing || detectChapters) {
-          chapters = detected;
-          chapterTitles = titles;
-        }
-        if (replacing || pageChange) {
-          if (!replacing && book.pages) return { error: "Esta edição já tem um total de páginas no catálogo." };
-          pages = book.pages ?? progressValue(rawPages, 100_000);
-          if (!pages && rawPages) return { error: "Informe um total válido de páginas." };
-        }
+      if (replacing || pageChange) {
+        const { book } = await getBookEdition(volume);
+        if (!replacing && book.pages && current.bookPages) return { error: "Esta edição já tem um total de páginas no catálogo." };
+        pages = book.pages ?? progressValue(rawPages, 100_000);
+        if (!pages && rawPages) return { error: "Informe um total válido de páginas." };
         if (replacing) edition = {
           bookVolumeId: book.id, bookTitle: book.title, bookAuthors: book.authors,
           bookPublisher: book.publisher, bookYear: book.year, bookIsbn: book.isbn, bookCover: book.cover,
           readingStartedAt: new Date(),
         };
       }
-      if (!pages && !chapters) return { error: "Informe um total válido de páginas ou capítulos." };
+      if (!pages) return { error: "Informe um total válido de páginas." };
     } else {
       edition = { bookVolumeId: null, bookTitle: null, bookAuthors: null, bookPublisher: null,
         bookYear: null, bookIsbn: null, bookCover: null, readingStartedAt: null };
     }
 
-    const previousTitles = current.chapterTitles ?? [];
-    const chapterSource = chapterTitles.length ? "open-library" : null;
-    const titlesChanged = JSON.stringify(previousTitles) !== JSON.stringify(chapterTitles);
-    const reset = remove || replacing || chapters !== current.chapterTotal ||
-      (previousTitles.length > 0 && titlesChanged);
+    const reset = remove || replacing || current.chapterTotal !== null;
     if (reset && current.bookVolumeId && !confirmed) return { error: "Confirme que o progresso dos membros será apagado." };
 
     const result = await db.$transaction<ActionState>(async (tx) => {
@@ -247,14 +234,13 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
       const club = await tx.club.findFirst({ where: { id, leaderId: user.id }, select: { readingRevision: true } });
       if (!club) return clubUnavailable;
       if (club.readingRevision !== current.readingRevision) return readingChanged;
-      if (!reset && pages === current.bookPages && chapters === current.chapterTotal && !titlesChanged) return { saved: true };
-      const total = chapters ?? pages;
-      if (!reset && total && await tx.clubMember.findFirst({
-        where: { clubId: id, progress: { gt: total } }, select: { userId: true },
+      if (!reset && pages === current.bookPages) return { saved: true };
+      if (!reset && pages && await tx.clubMember.findFirst({
+        where: { clubId: id, progress: { gt: pages } }, select: { userId: true },
       })) return { error: "O total é menor que o progresso já salvo por um membro." };
       if (reset) await tx.clubMember.updateMany({ where: { clubId: id }, data: { progress: null } });
       await tx.club.update({ where: { id }, data: {
-        ...edition, bookPages: pages, chapterTotal: chapters, ...(titlesChanged ? { chapterTitles, chapterSource } : {}), readingRevision: { increment: 1 },
+        ...edition, bookPages: pages, chapterTotal: null, ...(reset ? { chapterTitles: [], chapterSource: null } : {}), readingRevision: { increment: 1 },
       } });
       return { saved: true };
     });

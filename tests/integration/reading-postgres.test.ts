@@ -55,23 +55,19 @@ test.runIf(Boolean(url))("migra a leitura legada, serializa progresso e troca e 
   expect(await club()).toMatchObject({ bookTitle: "Nova leitura", readingRevision: 1, members: [{ progress: null }] });
   await expect(saveProgress(id, {}, position)).resolves.toHaveProperty("error");
   await expect(saveProgress(id, {}, fields({ progress: "30", revision: "1" }))).resolves.toEqual({ saved: true });
-  const detected = { book: { id: "nova", title: "Nova leitura", pages: 200 }, chapters: 2, titles: ["Início", "Fim"] };
+  await db.club.update({ where: { id }, data: { chapterTotal: 40, chapterTitles: ["Início"] } });
+  const toPages = fields({ volume: "nova", revision: "1", confirm: "yes" });
+  await expect(saveReading(id, {}, fields({ volume: "nova", revision: "1" }))).resolves.toHaveProperty("error");
   await db.$executeRaw`ALTER TABLE "Club" ADD CONSTRAINT "test_reject_revision" CHECK ("readingRevision" < 2)`;
   try {
-    getBookEdition.mockResolvedValueOnce(detected);
-    await expect(saveReading(id, {}, fields({ volume: "nova", detectChapters: "yes", revision: "1", confirm: "yes" })))
-      .resolves.toHaveProperty("error");
-    expect(await club()).toMatchObject({ readingRevision: 1, chapterTotal: null, members: [{ progress: 30 }] });
+    await expect(saveReading(id, {}, toPages)).resolves.toHaveProperty("error");
+    expect(await club()).toMatchObject({ readingRevision: 1, chapterTotal: 40, members: [{ progress: 30 }] });
   } finally {
     await db.$executeRaw`ALTER TABLE "Club" DROP CONSTRAINT "test_reject_revision"`;
   }
-  getBookEdition.mockResolvedValueOnce(detected);
-  await expect(saveReading(id, {}, fields({ volume: "nova", detectChapters: "yes", revision: "1", confirm: "yes" })))
-    .resolves.toEqual({ saved: true });
-  await expect(saveProgress(id, {}, fields({ progress: "1", revision: "2" }))).resolves.toEqual({ saved: true });
-  await expect(saveReading(id, {}, fields({ volume: "nova", chapterTitles: "Fim\nInício", revision: "2" })))
-    .resolves.toEqual({ saved: true });
-  expect(await club()).toMatchObject({ chapterTotal: 2, chapterTitles: ["Início", "Fim"], members: [{ progress: 1 }] });
+  await expect(saveReading(id, {}, toPages)).resolves.toEqual({ saved: true });
+  await expect(saveProgress(id, {}, fields({ progress: "75", revision: "2" }))).resolves.toEqual({ saved: true });
+  expect(await club()).toMatchObject({ chapterTotal: null, chapterTitles: [], members: [{ progress: 75 }] });
 
   await expect(deleteClub(id, {}, fields({ confirm: "yes" }))).rejects.toThrow("NEXT_REDIRECT");
   expect(await db.clubMember.count({ where: { clubId: id } })).toBe(0);
