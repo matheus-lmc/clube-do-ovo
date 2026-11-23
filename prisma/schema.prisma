@@ -24,6 +24,8 @@ model Club {
   chapterTitles  String[]     @default([])
   chapterSource  String?
   readingStartedAt DateTime?
+  readingId        String? @db.Uuid
+  comments         ReadingComment[]
   readingRevision  Int @default(0)
   createdAt      DateTime     @default(now())
   members        ClubMember[]
@@ -32,6 +34,7 @@ model Club {
 model ClubMember {
   clubId      String   @db.Uuid
   userId      String   @db.Uuid
+  avatarUrl   String?
   displayName String   @db.VarChar(80)
   progress    Int?
   joinedAt    DateTime @default(now())
@@ -39,4 +42,18 @@ model ClubMember {
 
   @@id([clubId, userId])
   @@index([userId])
+}
+
+model ReadingComment {
+  id        String   @id @db.Uuid
+  clubId    String   @db.Uuid
+  readingId String   @db.Uuid
+  authorId  String   @db.Uuid
+  page      Int
+  body      String   @db.VarChar(500)
+  isSpoiler Boolean  @default(false)
+  createdAt DateTime @default(now())
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, readingId, page, createdAt, id])
 }

@@ -42,6 +42,7 @@
     "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "happy-dom": "^21.0.4",
     "postcss": "^8.5.33",
     "prisma": "7.9.1",
     "shadcn": "^4.23.0",

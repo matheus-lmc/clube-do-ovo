@@ -1,11 +1,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { revalidatePath } from "next/cache";
-import { createClub, findClubInvite, joinClub, saveProgress } from "@/app/clubes/actions";
+import { createClub, findClubInvite, joinClub, publishReadingComment, readReadingComment, saveProgress } from "@/app/clubes/actions";
 import { requireClubUser } from "@/lib/club-session";
 import { getBookEdition } from "@/lib/book-editions";
 
 const db = vi.hoisted(() => ({
   club: { create: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  readingComment: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   clubMember: { findFirst: vi.fn(), createMany: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
 }));
 
@@ -200,4 +201,54 @@ test("salvar uma leitura sem mudanças conserva a revisão e os formulários abe
     .resolves.toEqual({ saved: true });
   expect(db.club.update).not.toHaveBeenCalled();
   expect(getBookEdition).not.toHaveBeenCalled();
+});
+
+const readingId = "112d66ad-6b06-4696-acc9-f2de9d7173cf";
+const requestId = "4fd14948-3a2d-4d8c-a756-e22872d414c0";
+const commentForm = (overrides: Record<string, string> = {}) =>
+  form({ requestId, page: "30", revision: "2", body: "Uma nota", isSpoiler: "true", ...overrides });
+
+test("recusa sessão fora do clube, revisão antiga e dados de comentário inválidos", async () => {
+  expect(await publishReadingComment(clubId, readingId, commentForm({ requestId: "inválido" }))).toHaveProperty("error");
+  expect(await publishReadingComment(clubId, readingId, commentForm())).toHaveProperty("error");
+  db.clubMember.findUnique.mockResolvedValue({ club: { readingId, readingRevision: 2, bookPages: 100, chapterTotal: 4 } });
+  expect(await publishReadingComment(clubId, readingId, commentForm())).toHaveProperty("error");
+  db.clubMember.findUnique.mockResolvedValue({ club: { readingId, readingRevision: 2, bookPages: 100, chapterTotal: null } });
+  expect(await publishReadingComment(clubId, readingId, commentForm({ page: "101" }))).toHaveProperty("error");
+  expect(await publishReadingComment(clubId, readingId, commentForm({ revision: "1" }))).toHaveProperty("error");
+  expect(db.readingComment.create).not.toHaveBeenCalled();
+});
+
+test("publica a marcação explícita e valida a identidade de cada repetição", async () => {
+  db.clubMember.findUnique.mockResolvedValue({ club: { readingId, readingRevision: 2, bookPages: 100, chapterTotal: null } });
+  expect(await publishReadingComment(clubId, readingId, commentForm())).toEqual({ saved: true });
+  const saved = { id: requestId, clubId, readingId, authorId: reader.id, page: 30, body: "Uma nota", isSpoiler: true };
+  expect(db.readingComment.create).toHaveBeenCalledWith({ data: saved });
+  for (const mismatch of [{ clubId: requestId }, { readingId: requestId }, { authorId: requestId }, { page: 31 }, { body: "Outro" }, { isSpoiler: false }]) {
+    db.readingComment.findUnique.mockResolvedValue({ ...saved, ...mismatch });
+    expect(await publishReadingComment(clubId, readingId, commentForm())).toHaveProperty("error");
+  }
+  db.readingComment.findUnique.mockResolvedValue(saved);
+  expect(await publishReadingComment(clubId, readingId, commentForm())).toEqual({ saved: true });
+  db.readingComment.findUnique.mockRejectedValue(new Error("offline"));
+  expect(await publishReadingComment(clubId, readingId, commentForm())).toHaveProperty("error");
+  expect(db.readingComment.create).toHaveBeenCalledTimes(1);
+});
+
+test("só devolve o texto protegido após uma revelação explícita", async () => {
+  const fetch = (reveal = false) => readReadingComment(clubId, readingId, requestId, reveal);
+  expect(await readReadingComment(clubId, readingId, "inválido", false)).toHaveProperty("error");
+  expect(await fetch()).toHaveProperty("error");
+  const note = { authorId: requestId, page: 30, body: "Uma nota", isSpoiler: false };
+  db.readingComment.findFirst.mockResolvedValue({ ...note, club: { members: [{ progress: null }] } });
+  expect(await fetch()).toEqual({ spoiler: true });
+  db.readingComment.findFirst.mockResolvedValue({ ...note, club: { members: [{ progress: 40 }] } });
+  expect(await fetch()).toEqual({ body: note.body });
+  db.readingComment.findFirst.mockResolvedValue({ ...note, isSpoiler: true, club: { members: [{ progress: 40 }] } });
+  expect(await fetch()).toEqual({ spoiler: true });
+  expect(await fetch(true)).toEqual({ body: note.body });
+  db.readingComment.findFirst.mockResolvedValue({ ...note, authorId: reader.id, isSpoiler: true });
+  expect(await fetch()).toEqual({ body: note.body });
+  db.readingComment.findFirst.mockRejectedValue(new Error("offline"));
+  expect(await fetch()).toHaveProperty("error");
 });

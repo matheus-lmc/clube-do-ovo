@@ -3,10 +3,11 @@
 import { useActionState, useEffect, useRef, useState, type CSSProperties } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { layoutChapterShortcuts } from "@/lib/club-rules";
+import { ReadingComments, type CommentMarker } from "./reading-comments";
 import { saveProgress } from "../actions";
 import styles from "../clubs.module.css";
 
-type Member = { id: string; name: string; progress: number | null; self: boolean };
+type Member = { id: string; name: string; progress: number | null; self: boolean; avatarUrl: string | null };
 
 type Shortcut = { title: string; page: number };
 
@@ -88,8 +89,8 @@ function ChapterTrack({ shortcuts, page, total, onSelect }: {
   );
 }
 
-export function ReadingProgress({ clubId, revision, total, byChapter, titles, isbn, members }: {
-  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; isbn: string | null; members: Member[];
+export function ReadingProgress({ clubId, revision, total, byChapter, titles, isbn, members, readingId, comments }: {
+  clubId: string; revision: number; total: number; byChapter: boolean; titles: string[]; isbn: string | null; members: Member[]; readingId: string | null; comments: CommentMarker[] | null;
 }) {
   const current = members.find((member) => member.self)?.progress;
   const [position, setPosition] = useState(String(current ?? 0));
@@ -111,8 +112,10 @@ export function ReadingProgress({ clubId, revision, total, byChapter, titles, is
       <div className={styles.progressLayout}>
         <form action={submit} onSubmit={() => setEdited(false)} className={styles.progressForm}>
           <input type="hidden" name="revision" value={revision} />
-          <div className={styles.field}>
+          <div className={`${styles.field} ${readingId ? styles.commentField : ""}`}>
             <label htmlFor={byChapter ? "reading-slider" : "reading-position"}>{label}</label>
+            {readingId && <ReadingComments clubId={clubId} readingId={readingId} revision={revision} total={total}
+              selected={sliderValue} members={members} comments={comments} />}
             <div className={styles.sliderTrack}>
               <input id="reading-slider" type="range" min={0} max={total} step={1} value={sliderValue}
                 aria-label={`${label}, barra editável`} aria-valuetext={byChapter ? `${chapterPosition}, ${sliderValue} de ${total} capítulos` : `${sliderValue} de ${total} páginas`}

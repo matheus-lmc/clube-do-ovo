@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { PrismaClient } from "@/generated/prisma/client";
-import { deleteClub, saveProgress, saveReading } from "@/app/clubes/actions";
+import { deleteClub, publishReadingComment, readReadingComment, saveProgress, saveReading } from "@/app/clubes/actions";
 
 const { getPrisma, getBookEdition, user } = vi.hoisted(() => ({
   getPrisma: vi.fn(),
@@ -40,10 +40,35 @@ test.runIf(Boolean(url))("migra a leitura legada, serializa progresso e troca e 
     VALUES (${id}::uuid, ${user.id}::uuid, 'Marina', 0)`;
   await migrate("20261120215000_optional_reading");
   await migrate("20261121160000_chapter_titles");
+  await migrate("20261123140000_reading_comments");
+  await migrate("20261123143000_comment_spoiler");
 
   const club = () => db.club.findUniqueOrThrow({ where: { id }, include: { members: true } });
   expect(await club()).toMatchObject({ readingStartedAt: date, bookTitle: "Original", members: [{ progress: 0 }] });
   await expect(db.club.update({ where: { id }, data: { bookTitle: null } })).rejects.toThrow();
+
+  const readingId = (await club()).readingId!;
+  expect(readingId).toMatch(/^[a-f0-9-]{36}$/);
+  const requestId = "77e61828-c16f-4816-98ec-40aa589cb701";
+  const note = fields({ page: "38", body: "Minha nota", isSpoiler: "true", revision: "0", requestId });
+  await expect(publishReadingComment(id, readingId, note)).resolves.toEqual({ saved: true });
+  await expect(publishReadingComment(id, readingId, note)).resolves.toEqual({ saved: true });
+  expect(await db.readingComment.count()).toBe(1);
+  expect(await db.readingComment.findUnique({ where: { id: requestId } })).toMatchObject({ isSpoiler: true });
+  await expect(readReadingComment(id, readingId, requestId, false)).resolves.toEqual({ body: "Minha nota" });
+
+  const other = await db.readingComment.create({ data: {
+    id: "77e61828-c16f-4816-98ec-40aa589cb702", clubId: id, readingId,
+    authorId: "77e61828-c16f-4816-98ec-40aa589cb703", page: 24, body: "Surpresa",
+  } });
+  await expect(readReadingComment(id, readingId, other.id, false)).resolves.toEqual({ spoiler: true });
+  await expect(readReadingComment(id, readingId, other.id, true)).resolves.toEqual({ body: "Surpresa" });
+  await expect(saveProgress(id, {}, fields({ progress: "24", revision: "0" }))).resolves.toEqual({ saved: true });
+  await expect(readReadingComment(id, readingId, other.id, false)).resolves.toEqual({ body: "Surpresa" });
+
+  await db.readingComment.update({ where: { id: other.id }, data: { isSpoiler: true } });
+  await expect(readReadingComment(id, readingId, other.id, false)).resolves.toEqual({ spoiler: true });
+  await expect(readReadingComment(id, readingId, other.id, true)).resolves.toEqual({ body: "Surpresa" });
 
   const position = fields({ progress: "25", revision: "0" });
   const [progress, reading] = await Promise.all([
@@ -54,6 +79,7 @@ test.runIf(Boolean(url))("migra a leitura legada, serializa progresso e troca e 
   expect(reading).toEqual({ saved: true });
   expect(await club()).toMatchObject({ bookTitle: "Nova leitura", readingRevision: 1, members: [{ progress: null }] });
   await expect(saveProgress(id, {}, position)).resolves.toHaveProperty("error");
+  await expect(readReadingComment(id, readingId, requestId, true)).resolves.toHaveProperty("error");
   await expect(saveProgress(id, {}, fields({ progress: "30", revision: "1" }))).resolves.toEqual({ saved: true });
   await db.club.update({ where: { id }, data: { chapterTotal: 40, chapterTitles: ["Início"] } });
   const toPages = fields({ volume: "nova", revision: "1", confirm: "yes" });
