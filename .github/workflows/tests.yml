@@ -25,3 +25,55 @@ jobs:
           path: coverage/
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  deploy-production:
+    needs: tests
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && vars.ENABLE_PRODUCTION_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://clube-do-ovo.vercel.app
+    concurrency:
+      group: clube-do-ovo-production
+      cancel-in-progress: false
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Compilar na Vercel
+        id: vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" && test -n "$VERCEL_ORG_ID" && test -n "$VERCEL_PROJECT_ID"
+          npx --yes vercel@66.6.0 deploy --prod --skip-domain --yes --json --token "$VERCEL_TOKEN" \
+            --meta "gitCommitSha=$GITHUB_SHA" > "$RUNNER_TEMP/vercel-deployment.json"
+          node --input-type=module - "$RUNNER_TEMP/vercel-deployment.json" <<'JS' >> "$GITHUB_OUTPUT"
+          import { readFileSync } from "node:fs";
+          const { deployment } = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          if (deployment?.readyState !== "READY" || !/^dpl_[a-zA-Z0-9]+$/.test(deployment.id)) {
+            throw new Error("A Vercel não retornou um deploy pronto para promover.");
+          }
+          console.log("id=" + deployment.id);
+          JS
+      - name: Aplicar migrações de produção
+        env:
+          DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+        run: |
+          test -n "$DIRECT_URL"
+          npx prisma migrate deploy
+      - name: Publicar no domínio de produção
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_ID: ${{ steps.vercel.outputs.id }}
+        run: npx --yes vercel@66.6.0 promote "$DEPLOYMENT_ID" --yes --token "$VERCEL_TOKEN"
+      - name: Verificar a página de login
+        run: curl --fail --silent --show-error --retry 3 --output /dev/null https://clube-do-ovo.vercel.app/entrar

@@ -72,3 +72,5 @@ O GitHub Actions roda as verificações em pushes e pull requests e disponibiliz
 ## Deploy na Vercel
 
 Importe o repositório na Vercel com o preset Next.js e configure as duas variáveis públicas do Supabase nos ambientes em que serão usadas antes do build. Para usar Prisma na Vercel, configure também `DATABASE_URL` com a string do **Transaction pooler** (porta 6543) e `DIRECT_URL` com a string do **Session pooler** (porta 5432) para a CLI. [Prisma no Supabase](https://supabase.com/docs/guides/database/prisma) · [Variáveis de ambiente na Vercel](https://vercel.com/docs/environment-variables)
+
+Com a variável de repositório `ENABLE_PRODUCTION_DEPLOY=true`, pushes para `main` são publicados pelo GitHub Actions depois de validar lint, tipos, cobertura e Playwright. O job usa as variáveis `VERCEL_ORG_ID` e `VERCEL_PROJECT_ID` e os secrets `VERCEL_TOKEN` e `PRODUCTION_DIRECT_URL` do ambiente `production` no GitHub. Configure o token com acesso ao projeto de produção antes de ativar a variável. A Vercel compila a nova versão, o Prisma aplica as migrações e o job promove o deploy para o domínio público.
