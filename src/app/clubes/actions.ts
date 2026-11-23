@@ -1,12 +1,13 @@
 "use server";
 
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { getBookEdition } from "@/lib/book-editions";
 import { inviteCode, progressValue } from "@/lib/club-rules";
 import { requireClubUser } from "@/lib/club-session";
+import { parseComment } from "@/lib/reading-comments";
 import { getPrisma } from "@/lib/prisma";
 
 type ActionState = { error?: string; saved?: boolean };
@@ -41,10 +42,10 @@ export async function createClub(_state: ActionState, form: FormData): Promise<A
     try {
       await db.club.create({ data: {
         id, name, leaderId: user.id, inviteCode: code, bookVolumeId: book.id,
-        readingStartedAt: new Date(), bookTitle: book.title, bookAuthors: book.authors, bookPublisher: book.publisher,
+        readingStartedAt: new Date(), readingId: randomUUID(), bookTitle: book.title, bookAuthors: book.authors, bookPublisher: book.publisher,
         bookYear: book.year, bookIsbn: book.isbn, bookCover: book.cover,
         bookPages, chapterTotal: null,
-        members: { create: { userId: user.id, displayName: user.name } },
+        members: { create: { userId: user.id, displayName: user.name, ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}) } },
       } });
       created = true;
     } catch (error) {
@@ -99,7 +100,7 @@ export async function joinClub(_state: ActionState, form: FormData): Promise<Act
       const active = await tx.club.findUnique({ where: { inviteCode: code }, select: { id: true } });
       if (active?.id !== id) return false;
       await tx.clubMember.createMany({
-        data: { clubId: id, userId: user.id, displayName: user.name },
+        data: { clubId: id, userId: user.id, displayName: user.name, ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}) },
         skipDuplicates: true,
       });
       return true;
@@ -217,13 +218,13 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
         if (replacing) edition = {
           bookVolumeId: book.id, bookTitle: book.title, bookAuthors: book.authors,
           bookPublisher: book.publisher, bookYear: book.year, bookIsbn: book.isbn, bookCover: book.cover,
-          readingStartedAt: new Date(),
+          readingStartedAt: new Date(), readingId: randomUUID(),
         };
       }
       if (!pages) return { error: "Informe um total válido de páginas." };
     } else {
       edition = { bookVolumeId: null, bookTitle: null, bookAuthors: null, bookPublisher: null,
-        bookYear: null, bookIsbn: null, bookCover: null, readingStartedAt: null };
+        bookYear: null, bookIsbn: null, bookCover: null, readingStartedAt: null, readingId: null };
     }
 
     const reset = remove || replacing || current.chapterTotal !== null;
@@ -238,6 +239,9 @@ async function changeReading(id: string, form: FormData, remove: boolean): Promi
       if (!reset && pages && await tx.clubMember.findFirst({
         where: { clubId: id, progress: { gt: pages } }, select: { userId: true },
       })) return { error: "O total é menor que o progresso já salvo por um membro." };
+      if (!remove && !replacing && pages && current.readingId && await tx.readingComment.findFirst({
+        where: { clubId: id, readingId: current.readingId, page: { gt: pages } }, select: { id: true },
+      })) return { error: "O total é menor que a página de um comentário da leitura." };
       if (reset) await tx.clubMember.updateMany({ where: { clubId: id }, data: { progress: null } });
       await tx.club.update({ where: { id }, data: {
         ...edition, bookPages: pages, chapterTotal: null, ...(reset ? { chapterTitles: [], chapterSource: null } : {}), readingRevision: { increment: 1 },
@@ -257,4 +261,65 @@ export async function saveReading(id: string, _state: ActionState, form: FormDat
 
 export async function removeReading(id: string, _state: ActionState, form: FormData): Promise<ActionState> {
   return changeReading(id, form, true);
+}
+
+export async function publishReadingComment(clubId: string, readingId: string, form: FormData): Promise<ActionState> {
+  const user = await requireClubUser();
+  const id = form.get("requestId");
+  if (!validClubId.test(clubId) || !validClubId.test(readingId) || typeof id !== "string" || !validClubId.test(id)) return clubUnavailable;
+
+  try {
+    const result = await getPrisma().$transaction<ActionState>(async (tx) => {
+      await lockClub(tx, clubId);
+      const member = await tx.clubMember.findUnique({
+        where: { clubId_userId: { clubId, userId: user.id } },
+        select: { club: { select: { readingId: true, readingRevision: true, bookPages: true, chapterTotal: true } } },
+      });
+      if (!member) return clubUnavailable;
+      const club = member.club;
+      if (club.readingId !== readingId || !club.bookPages || club.chapterTotal !== null) return readingChanged;
+      const isSpoiler = form.get("isSpoiler") === "true";
+      const input = parseComment(form.get("page"), form.get("body"), club.bookPages);
+      if (!input) return { error: "Informe uma página válida e escreva até 500 caracteres." };
+
+      const existing = await tx.readingComment.findUnique({ where: { id } });
+      if (existing) {
+        return existing.clubId === clubId && existing.readingId === readingId && existing.authorId === user.id
+          && existing.page === input.page && existing.body === input.body && existing.isSpoiler === isSpoiler
+          ? { saved: true } : { error: "Reabra o formulário e tente novamente." };
+      }
+      if (form.get("revision") !== String(club.readingRevision)) return readingChanged;
+
+      await tx.readingComment.create({ data: { id, clubId, readingId, authorId: user.id, isSpoiler, ...input } });
+      return { saved: true };
+    });
+    if (result.saved) revalidatePath(`/clubes/${clubId}`);
+    return result;
+  } catch {
+    return { error: "Não foi possível publicar. Tente novamente." };
+  }
+}
+
+export async function readReadingComment(clubId: string, readingId: string, id: string, reveal: boolean): Promise<{ body?: string; spoiler?: boolean; error?: string }> {
+  const user = await requireClubUser();
+  if (![clubId, readingId, id].every(value => typeof value === "string" && validClubId.test(value))) return clubUnavailable;
+  try {
+    const comment = await getPrisma().readingComment.findFirst({
+      where: {
+        id, clubId, readingId,
+        club: { readingId, chapterTotal: null, bookPages: { gt: 0 }, members: { some: { userId: user.id } } },
+      },
+      select: {
+        authorId: true, page: true, body: true, isSpoiler: true,
+        club: { select: { members: { where: { userId: user.id }, select: { progress: true } } } },
+      },
+    });
+    if (!comment) return clubUnavailable;
+    if (reveal !== true && comment.authorId !== user.id && (comment.isSpoiler || comment.page > (comment.club.members[0]?.progress ?? 0))) {
+      return { spoiler: true as const };
+    }
+    return { body: comment.body };
+  } catch {
+    return { error: "Não foi possível carregar o comentário." };
+  }
 }

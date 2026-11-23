@@ -253,3 +253,65 @@ test("descarta busca anterior e trata vazio, falha e fechamento por Escape", asy
     releaseOld();
   }
 });
+
+test("comenta na página e abre a prévia lateral sem deslocar o ranking", async ({ page, context, browser }) => {
+  test.skip(!postgresUrl, "Requer PostgreSQL descartável com as migrações aplicadas.");
+  const db = new pg.Client({ connectionString: postgresUrl });
+  const id = randomUUID();
+  await db.connect();
+  try {
+    await db.query(
+      `INSERT INTO "Club" (id, name, "leaderId", "inviteCode", "bookVolumeId", "bookTitle", "bookPages", "bookIsbn", "readingStartedAt", "readingId")
+       VALUES ($1, 'Entre Páginas', $2, $3, 'livro-1', 'Livro de teste', 100, '9780000000002', CURRENT_TIMESTAMP, $4)`,
+      [id, reader.id, id.slice(0, 6).toUpperCase(), randomUUID()],
+    );
+    await db.query(
+      `INSERT INTO "ClubMember" ("clubId", "userId", "displayName", progress) VALUES ($1, $2, 'Marina', 25), ($1, $3, 'Miguel', 40)`,
+      [id, reader.id, member.id],
+    );
+    await signIn(context);
+    await page.route("**/api/livros?sumario=*", route => route.fulfill({ json: [{ title: "Primeiro capítulo", page: 7 }] }));
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto(`/clubes/${id}`);
+    await expect(page.getByRole("button", { name: /Primeiro capítulo/ })).toBeVisible();
+    await page.getByRole("button", { name: "Comentar", exact: true }).click();
+    await expect(page.getByLabel("Página", { exact: true })).toHaveValue("25");
+    await page.getByLabel("Comentário", { exact: true }).fill("Uma nota sobre esta página.");
+    await page.getByRole("checkbox", { name: "Marcar como spoiler" }).check();
+    await page.getByRole("button", { name: "Publicar" }).click();
+
+    const marker = page.getByRole("button", { name: "Marina, página 25" });
+    await expect(marker).toBeVisible();
+    const rank = page.getByRole("region", { name: "Progresso dos membros" }).getByRole("listitem").first();
+    const first = (await rank.boundingBox())!;
+    expect(first.y + first.height).toBeLessThanOrEqual(568);
+    await marker.hover();
+    await expect(page.getByText("Uma nota sobre esta página.")).toBeVisible();
+    expect(await rank.boundingBox()).toEqual(first);
+    await marker.press("Escape");
+    await expect(marker).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("spinbutton", { name: "Página atual" })).toHaveValue("25");
+
+    const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    try {
+      await signIn(touch, member);
+      const mobile = await touch.newPage();
+      await mobile.route("**/api/livros?sumario=*", route => route.fulfill({ json: [] }));
+      await mobile.goto(`/clubes/${id}`);
+      const avatar = mobile.getByRole("button", { name: "Marina, página 25" });
+      await avatar.tap();
+      const reveal = mobile.getByRole("button", { name: "Mostrar spoiler" });
+      await expect(reveal).toBeVisible();
+      await expect(mobile.getByText("Uma nota sobre esta página.")).toBeHidden();
+      await reveal.tap();
+      await expect(mobile.getByText("Uma nota sobre esta página.")).toBeVisible();
+      await avatar.tap();
+      await expect(avatar).toHaveAttribute("aria-expanded", "false");
+    } finally {
+      await touch.close();
+    }
+  } finally {
+    await db.query('DELETE FROM "Club" WHERE id = $1', [id]);
+    await db.end();
+  }
+});

@@ -68,9 +68,9 @@ function ManagementDialog({ label, title, icon, primary, danger, children }: {
   return (
     <>
       <div className={styles.editorTrigger}>
-        <button ref={trigger} type="button" className={primary ? styles.primary : styles.button} aria-haspopup="dialog"
+        <button ref={trigger} type="button" className={primary ? styles.primary : styles.button} aria-haspopup="dialog" aria-label={label}
           onClick={() => { setNotice(""); setOpen(true); }}>
-          {icon} {label}
+          {icon} <span>{label}</span>
         </button>
         <p className={styles.feedback} role="status">{notice}</p>
       </div>

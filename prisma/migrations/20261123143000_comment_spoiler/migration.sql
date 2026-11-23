@@ -1,0 +1,1 @@
+ALTER TABLE "ReadingComment" ADD COLUMN "isSpoiler" BOOLEAN NOT NULL DEFAULT false;

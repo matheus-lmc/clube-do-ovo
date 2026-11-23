@@ -1,5 +1,6 @@
 import "server-only";
 
+import { profilePhoto } from "@/lib/reading-comments";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -17,7 +18,8 @@ export const getClubUser = cache(async () => {
   const name = [metadata?.full_name, metadata?.name, metadata?.preferred_username]
     .find((value): value is string => typeof value === "string" && Boolean(value.trim()));
 
-  return { id: data.claims.sub, name: name?.trim().slice(0, 80) ?? "Leitor do clube" };
+  const avatarUrl = profilePhoto(metadata?.avatar_url) ?? profilePhoto(metadata?.picture);
+  return { id: data.claims.sub, ...(avatarUrl ? { avatarUrl } : {}), name: name?.trim().slice(0, 80) ?? "Leitor do clube" };
 });
 
 export async function requireClubUser() {

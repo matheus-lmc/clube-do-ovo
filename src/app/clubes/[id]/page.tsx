@@ -25,7 +25,20 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
   const leader = club.members.find(({ userId }) => userId === club.leaderId);
   const current = club.members.find(({ userId }) => userId === user.id);
   if (!current) notFound();
+  const db = getPrisma();
   const total = club.chapterTotal ?? club.bookPages;
+  const readingId = club.chapterTotal === null && club.bookPages ? club.readingId : null;
+  const comments = readingId ? await db.readingComment.findMany({
+    where: { clubId: id, readingId },
+    select: { id: true, authorId: true, page: true },
+    orderBy: [{ page: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  }).catch(() => null) : [];
+  const currentPhoto = user.avatarUrl ?? current.avatarUrl;
+  if (user.avatarUrl && current.avatarUrl !== user.avatarUrl) {
+    await db.clubMember.updateMany({
+      where: { clubId: id, userId: user.id }, data: { avatarUrl: user.avatarUrl },
+    }).catch(() => undefined);
+  }
   const readingMonth = club.readingStartedAt && new Intl.DateTimeFormat("pt-BR", {
     month: "long", year: "numeric", timeZone: "America/Sao_Paulo",
   }).format(club.readingStartedAt);
@@ -68,8 +81,9 @@ async function ClubDetails({ params }: Pick<PageProps<"/clubes/[id]">, "params">
       </section>
       {total && (
         <ReadingProgress key={`${id}:${club.readingRevision}`} clubId={id} revision={club.readingRevision} total={total} byChapter={club.chapterTotal !== null} titles={club.chapterTitles} isbn={club.bookIsbn}
+          readingId={readingId} comments={comments}
           members={[current, ...club.members.filter((member) => member.userId !== user.id)].map((member) => ({
-            id: member.userId, name: member.displayName, progress: member.progress, self: member.userId === user.id,
+            id: member.userId, name: member.displayName, progress: member.progress, self: member.userId === user.id, avatarUrl: member.userId === user.id ? currentPhoto : member.avatarUrl,
           }))} />
       )}
       {leads && <CopyInvite key={id} code={club.inviteCode} />}
